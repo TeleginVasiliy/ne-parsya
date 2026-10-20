@@ -228,24 +228,34 @@
   document.addEventListener('focusout', function () { tip.hidden = true; });
 
   /* ---------------- заказы ---------------- */
+  // Выполненные и отменённые заказы лежат во вкладке «Архив», остальные — в «Активных»
+  var CLOSED = ['done', 'cancelled'];
+  var isClosed = function (o) { return CLOSED.indexOf(o.status) !== -1; };
   Object.keys(STATUS).forEach(function (s) {
     var opt = document.createElement('option');
     opt.value = s;
     opt.textContent = STATUS[s];
-    $('#fStatus').appendChild(opt);
+    $(isClosed({ status: s }) ? '#aStatus' : '#fStatus').appendChild(opt);
   });
   $('#q').addEventListener('input', renderOrders);
   $('#fStatus').addEventListener('change', renderOrders);
+  $('#aq').addEventListener('input', renderOrders);
+  $('#aStatus').addEventListener('change', renderOrders);
 
-  function renderOrders() {
-    var q = $('#q').value.trim().toLowerCase(), st = $('#fStatus').value;
-    var list = data.orders.filter(function (o) {
+  function pick(closed, q, st) {
+    q = q.trim().toLowerCase();
+    return data.orders.filter(function (o) {
+      if (isClosed(o) !== closed) return false;
       if (st && o.status !== st) return false;
       if (!q) return true;
-      var hay = [o.code, o.client_name, o.client_username, o.type_name].concat((o.lines || []).map(function (l) { return l[2]; }))
+      var hay = [o.code, o.client_name, o.client_username, o.type_name, o.admin_name].concat((o.lines || []).map(function (l) { return l[2]; }))
         .join(' ').toLowerCase();
       return hay.indexOf(q) !== -1;
     });
+  }
+
+  function renderOrders() {
+    var list = pick(false, $('#q').value, $('#fStatus').value);
     $('#ordersTable').innerHTML = '<thead><tr><th>Заказ</th><th>Клиент</th><th>Тип</th><th>Статус</th>' +
       '<th class="num">Цена</th><th class="num">Оплачено</th><th>Создан</th></tr></thead><tbody>' +
       (list.length ? list.map(function (o) {
@@ -253,15 +263,37 @@
           '<td data-l="Клиент">' + esc(o.client_name || '—') + '</td><td data-l="Тип">' + esc(o.type_name || '') + '</td>' +
           '<td>' + pill(o.status) + '</td><td class="num" data-l="Цена">' + money(o.price) + '</td>' +
           '<td class="num" data-l="Оплачено">' + money(o.paid) + '</td><td data-l="Создан">' + dt(o.created_at) + '</td></tr>';
-      }).join('') : '<tr><td colspan="7" class="p-muted">Ничего не найдено</td></tr>') + '</tbody>';
+      }).join('') : '<tr><td colspan="7" class="p-muted">Активных заказов нет</td></tr>') + '</tbody>';
+    renderArchive();
   }
-  $('#ordersTable').addEventListener('click', function (e) {
-    var tr = e.target.closest('tr[data-id]');
-    if (tr) openOrder(Number(tr.getAttribute('data-id')));
-  });
-  $('#ordersTable').addEventListener('keydown', function (e) {
-    var tr = e.target.closest('tr[data-id]');
-    if (tr && e.key === 'Enter') openOrder(Number(tr.getAttribute('data-id')));
+
+  function renderArchive() {
+    var list = pick(true, $('#aq').value, $('#aStatus').value)
+      .sort(function (a, b) { return (b.updated_at || b.created_at) > (a.updated_at || a.created_at) ? 1 : -1; });
+    var done = list.filter(function (o) { return o.status === 'done'; });
+    $('#archiveSum').textContent = list.length ? 'Выполнено: ' + done.length + ' на ' +
+      money(done.reduce(function (s, o) { return s + (o.paid || 0); }, 0)) +
+      ' · отменено: ' + (list.length - done.length) : '';
+    $('#archiveTable').innerHTML = '<thead><tr><th>Заказ</th><th>Клиент</th><th>Тип</th><th>Статус</th>' +
+      '<th class="num">Цена</th><th class="num">Оплачено</th><th>Вёл</th><th>Создан</th><th>Закрыт</th></tr></thead><tbody>' +
+      (list.length ? list.map(function (o) {
+        return '<tr data-id="' + o.id + '" tabindex="0"><td><b>#' + esc(o.code) + '</b></td>' +
+          '<td data-l="Клиент">' + esc(o.client_name || '—') + '</td><td data-l="Тип">' + esc(o.type_name || '') + '</td>' +
+          '<td>' + pill(o.status) + '</td><td class="num" data-l="Цена">' + money(o.price) + '</td>' +
+          '<td class="num" data-l="Оплачено">' + money(o.paid) + '</td><td data-l="Вёл">' + esc(o.admin_name || '—') + '</td>' +
+          '<td data-l="Создан">' + dt(o.created_at) + '</td><td data-l="Закрыт">' + dt(o.updated_at) + '</td></tr>';
+      }).join('') : '<tr><td colspan="9" class="p-muted">В архиве пока пусто</td></tr>') + '</tbody>';
+  }
+
+  ['#ordersTable', '#archiveTable'].forEach(function (sel) {
+    $(sel).addEventListener('click', function (e) {
+      var tr = e.target.closest('tr[data-id]');
+      if (tr) openOrder(Number(tr.getAttribute('data-id')));
+    });
+    $(sel).addEventListener('keydown', function (e) {
+      var tr = e.target.closest('tr[data-id]');
+      if (tr && e.key === 'Enter') openOrder(Number(tr.getAttribute('data-id')));
+    });
   });
 
   /* ---------------- карточка заказа ---------------- */
@@ -284,6 +316,7 @@
       '<dt>Оплачено</dt><dd>' + money(o.paid) + '</dd><dt>Срок</dt><dd>' + esc(o.deadline_text || o.deadline || '—') + '</dd>' +
       '<dt>Ведёт</dt><dd>' + esc(o.admin_name || 'никто') + '</dd><dt>Источник</dt><dd>' + (o.source === 'site' ? '🌐 сайт' : '🤖 бот') + '</dd>' +
       '<dt>Создан</dt><dd>' + dt(o.created_at) + '</dd>' +
+      (isClosed(o) ? '<dt>Закрыт</dt><dd>' + dt(o.updated_at) + '</dd>' : '') +
       (o.reject_reason ? '<dt>Отмена</dt><dd>' + esc(o.reject_reason) + '</dd>' : '') + '</dl></div>' +
       '<div class="section-box"><h4>Заявка</h4><ul class="o-lines">' + (o.lines || []).map(function (l) {
         return '<li><span>' + esc(l[0]) + '</span><span><b>' + esc(l[1]) + ':</b> ' + esc(l[2]) + '</span></li>';
@@ -495,7 +528,7 @@
   $$('.tabs button').forEach(function (b) {
     b.addEventListener('click', function () {
       $$('.tabs button').forEach(function (x) { x.setAttribute('aria-selected', String(x === b)); });
-      ['report', 'orders', 'reviews'].forEach(function (t) { $('#tab-' + t).hidden = b.getAttribute('data-tab') !== t; });
+      ['report', 'orders', 'archive', 'reviews'].forEach(function (t) { $('#tab-' + t).hidden = b.getAttribute('data-tab') !== t; });
     });
   });
 
