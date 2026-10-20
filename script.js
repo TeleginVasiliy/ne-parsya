@@ -1459,9 +1459,19 @@
         api('rpc/get_stats', { method: 'POST', body: {} }).then(setStats).catch(function () { /* не критично */ });
       }).catch(function (e4) {
         console.warn('[Не Парься] Отзыв не отправлен:', e4.message, e4.details || '');
-        showError(e4.status === 400
+        // Понятная причина вместо общего «проверьте интернет» — так проще найти, что не так
+        var d = String(e4.details || '');
+        showError(e4.status === 400 || /check constraint|violates check/i.test(d)
           ? 'Проверьте поля: имя до 60 символов, отзыв от 10 до 1000 символов.'
-          : 'Не удалось отправить отзыв. Проверьте интернет и попробуйте ещё раз.');
+          : e4.status === 401 || e4.status === 403
+            ? (/row-level security/i.test(d)
+              ? 'База не приняла отзыв (правила доступа). Владельцу сайта: выполните заново supabase-setup.sql. [код ' + e4.status + ']'
+              : 'База отклонила ключ. Владельцу сайта: проверьте в config.js url и publishable-ключ Supabase. [код ' + e4.status + ']')
+          : e4.status === 404
+            ? 'В базе нет таблицы отзывов. Владельцу сайта: выполните supabase-setup.sql. [код 404]'
+          : e4.status
+            ? 'База временно не отвечает, попробуйте через минуту. [код ' + e4.status + ']'
+            : 'Не удалось связаться с базой. Проверьте интернет; если не помогает — попробуйте с VPN или другой сетью.');
         play('error');
       }).then(function () {
         submit.disabled = false;
