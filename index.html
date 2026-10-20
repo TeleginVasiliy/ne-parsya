@@ -1,0 +1,836 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Не Парься — помощь студентам</title>
+  <meta name="description" content="Выполню любую студенческую работу: от контрольной до диплома. Индивидуальный подход, оформление по ГОСТ и методичке, проверка на антиплагиат. Соберите заказ за пару минут и отправьте в Telegram.">
+  <meta name="theme-color" content="#f7f5fc" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0c0c11" media="(prefers-color-scheme: dark)">
+
+  <!-- Open Graph: карточка-превью при отправке ссылки в мессенджерах.
+       После деплоя замените относительные пути на полный адрес сайта (см. README). -->
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ru_RU">
+  <meta property="og:site_name" content="Не Парься">
+  <meta property="og:title" content="Не Парься — помощь студентам">
+  <meta property="og:description" content="От контрольной до диплома. Соберите заказ в конструкторе и отправьте в Telegram — цена индивидуально.">
+  <meta property="og:image" content="assets/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Не Парься — помощь студентам">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Не Парься — помощь студентам">
+  <meta name="twitter:description" content="От контрольной до диплома. Соберите заказ и отправьте в Telegram.">
+  <meta name="twitter:image" content="assets/og-image.png">
+
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+
+  <!-- Тема применяется до отрисовки, чтобы не было «вспышки» не той темы -->
+  <script>
+    (function () {
+      var t = null;
+      try { t = localStorage.getItem('np-theme'); } catch (e) {}
+      if (t !== 'light' && t !== 'dark') {
+        var h = document.documentElement.getAttribute('data-theme');
+        t = h === 'light' || h === 'dark' ? h : window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      document.documentElement.setAttribute('data-theme', t);
+      document.documentElement.classList.add('js');
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#builder">Перейти к конструктору заказа</a>
+
+  <!-- ============================ ШАПКА ============================ -->
+  <header class="header" id="header">
+    <div class="container header__inner">
+      <a href="#top" class="logo" aria-label="Не Парься — на главную">
+        <span class="logo__mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32"><path d="M9 16.5l4.5 4.5L23 11.5" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        <span class="logo__text">Не Парься</span>
+      </a>
+
+      <nav class="nav" id="nav" aria-label="Основное меню">
+        <a href="#services">Услуги</a>
+        <a href="#builder">Конструктор</a>
+        <a href="#how">Как это работает</a>
+        <a href="#works" data-nav="works">Примеры</a>
+        <a href="#reviews" data-nav="reviews">Отзывы</a>
+        <a href="#faq">FAQ</a>
+        <a href="cabinet.html" data-cabinet>Мой кабинет</a>
+      </nav>
+
+      <div class="header__actions">
+        <div class="sound-ctl">
+          <button class="icon-btn" id="soundBtn" type="button" aria-label="Настройки звука" aria-expanded="false" aria-controls="soundPop">
+            <svg class="i-sound-on" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+            <svg class="i-sound-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="m16 9 5 6M21 9l-5 6"/></svg>
+          </button>
+          <div class="sound-pop" id="soundPop" hidden>
+            <label class="switch-row">
+              <span>Звуки кликов</span>
+              <span class="switch"><input type="checkbox" id="soundToggle" data-sound="none"><span class="switch__track"></span></span>
+            </label>
+            <label class="vol-row">
+              <span class="vol-row__label">Громкость</span>
+              <input class="range" type="range" id="soundVolume" min="0" max="100" step="1" aria-label="Громкость звуков">
+            </label>
+            <p class="sound-pop__hint">Мягкие звуки генерируются прямо в браузере</p>
+          </div>
+        </div>
+
+        <button class="icon-btn theme-toggle" id="themeToggle" type="button" aria-label="Переключить тему">
+          <svg class="sun-moon" viewBox="0 0 24 24" aria-hidden="true">
+            <mask id="moonMask">
+              <rect x="0" y="0" width="24" height="24" fill="#fff"/>
+              <circle class="sun-moon__cut" cx="25" cy="6" r="6.5" fill="#000"/>
+            </mask>
+            <circle class="sun-moon__core" cx="12" cy="12" r="5" mask="url(#moonMask)"/>
+            <g class="sun-moon__rays">
+              <line x1="12" y1="1.5" x2="12" y2="3.5"/><line x1="12" y1="20.5" x2="12" y2="22.5"/>
+              <line x1="1.5" y1="12" x2="3.5" y2="12"/><line x1="20.5" y1="12" x2="22.5" y2="12"/>
+              <line x1="4.6" y1="4.6" x2="6" y2="6"/><line x1="18" y1="18" x2="19.4" y2="19.4"/>
+              <line x1="4.6" y1="19.4" x2="6" y2="18"/><line x1="18" y1="6" x2="19.4" y2="4.6"/>
+            </g>
+          </svg>
+        </button>
+
+        <button class="icon-btn burger" id="burger" type="button" aria-label="Открыть меню" aria-expanded="false" aria-controls="nav">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main id="top">
+    <!-- ============================ HERO ============================ -->
+    <section class="hero">
+      <div class="hero__bg" aria-hidden="true"><span class="blob blob--1"></span><span class="blob blob--2"></span><span class="blob blob--3"></span></div>
+      <div class="container hero__inner">
+        <div class="hero__text">
+          <p class="eyebrow reveal">Помощь студентам · заказ через Telegram</p>
+          <h1 class="hero__title reveal">Не&nbsp;Парься</h1>
+          <p class="hero__offer reveal">Выполню любую студенческую работу: от&nbsp;контрольной до&nbsp;диплома</p>
+          <p class="hero__sub reveal">Индивидуальный подход к&nbsp;каждому заказу: учту методичку, требования преподавателя и&nbsp;ваши сроки. Стоимость обсуждаем лично — честно и&nbsp;без шаблонных прайсов.</p>
+          <div class="hero__cta reveal">
+            <a href="#builder" class="btn btn--primary btn--lg" data-scroll>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M17.5 14v7M14 17.5h7"/></svg>
+              Собрать заказ
+            </a>
+            <a href="#" class="btn btn--ghost btn--lg" data-tg-link>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 4 3 11l6 2.5L11.5 20l3.2-4.2L19.5 19z"/><path d="m9 13.5 6.5-5"/></svg>
+              Написать в&nbsp;Telegram
+            </a>
+          </div>
+          <ul class="hero__chips reveal" aria-label="Коротко о главном">
+            <li>Бесплатные доработки</li>
+            <li>ГОСТ и методичка</li>
+            <li>Антиплагиат</li>
+          </ul>
+        </div>
+
+        <!-- Декоративная «заявка» — показывает, как выглядит заказ -->
+        <div class="hero__visual reveal" aria-hidden="true">
+          <div class="mock">
+            <div class="mock__head"><span class="mock__dot"></span>Заявка <b>#NP24</b></div>
+            <div class="mock__row"><span>📝</span>Курсовая работа</div>
+            <div class="mock__row"><span>📄</span>30 стр. · ГОСТ</div>
+            <div class="mock__row"><span>🔍</span>Оригинальность 75%</div>
+            <div class="mock__row"><span>⏰</span>Через неделю</div>
+            <div class="mock__bar"><span></span></div>
+            <div class="mock__send">Отправить в Telegram</div>
+          </div>
+          <div class="float-chip float-chip--1">Times New Roman 14</div>
+          <div class="float-chip float-chip--2">Интервал 1.5</div>
+          <div class="float-chip float-chip--3">✓ Готово</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ СЧЁТЧИКИ ============================ -->
+    <section class="stats" aria-label="Цифры">
+      <div class="container">
+        <div class="stats__grid" id="statsGrid"></div>
+      </div>
+    </section>
+
+    <!-- ============================ УСЛУГИ ============================ -->
+    <section class="section" id="services">
+      <div class="container">
+        <div class="section__head reveal">
+          <p class="eyebrow">Услуги</p>
+          <h2 class="section__title">Что я делаю</h2>
+          <p class="section__lead">Нажмите на карточку — тип работы сразу выберется в конструкторе.</p>
+        </div>
+        <div class="price-note reveal">
+          <span class="price-note__icon" aria-hidden="true">💬</span>
+          <p><b>Стоимость — индивидуально.</b> Цена зависит от объёма, срока и требований к работе. Точную сумму назову в Telegram после того, как посмотрю детали.</p>
+        </div>
+        <div class="services" id="servicesGrid"></div>
+      </div>
+    </section>
+
+    <!-- ============================ КОНСТРУКТОР ============================ -->
+    <section class="section section--builder" id="builder">
+      <div class="container">
+        <div class="section__head reveal">
+          <p class="eyebrow">Конструктор заказа</p>
+          <h2 class="section__title">Соберите заказ за&nbsp;пару минут</h2>
+          <p class="section__lead">Заполните то, что знаете, — остальное уточним в чате. Обязательно только поле «Тип работы». Черновик сохраняется автоматически.</p>
+        </div>
+
+        <div class="builder">
+          <form class="builder__form card" id="orderForm" novalidate autocomplete="off">
+            <!-- Степпер и прогресс -->
+            <div class="stepper" role="tablist" aria-label="Шаги конструктора">
+              <button type="button" class="stepper__item is-active" data-goto="0" role="tab" aria-selected="true"><span class="stepper__num">1</span><span class="stepper__label">Работа</span></button>
+              <button type="button" class="stepper__item" data-goto="1" role="tab" aria-selected="false"><span class="stepper__num">2</span><span class="stepper__label">Объём и срок</span></button>
+              <button type="button" class="stepper__item" data-goto="2" role="tab" aria-selected="false"><span class="stepper__num">3</span><span class="stepper__label" id="step3Label">Оформление</span></button>
+              <button type="button" class="stepper__item" data-goto="3" role="tab" aria-selected="false"><span class="stepper__num">4</span><span class="stepper__label">Детали</span></button>
+            </div>
+            <div class="progress" aria-hidden="true"><span class="progress__bar" id="progressBar"></span></div>
+            <div class="builder__toolbar">
+              <span class="builder__step-count" id="stepCount">Шаг 1 из 4</span>
+              <button type="button" class="link-btn" id="clearForm">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+                <span>Очистить форму</span>
+              </button>
+            </div>
+
+            <!-- ШАГ 1: что за работа -->
+            <fieldset class="step is-active" data-step="0">
+              <legend class="step__title">Что нужно сделать?</legend>
+
+              <div class="field" id="typeField">
+                <div class="field__label">Тип работы <span class="req" aria-hidden="true">*</span><span class="sr-only">(обязательно)</span></div>
+                <div class="type-grid" id="typeGrid" role="radiogroup" aria-label="Тип работы"></div>
+                <p class="field__error" id="typeError" role="alert" hidden>Выберите тип работы — это единственное обязательное поле</p>
+              </div>
+
+              <div class="grid-2">
+                <div class="field">
+                  <label class="field__label" for="subject">Предмет / дисциплина</label>
+                  <input class="input" type="text" id="subject" name="subject" maxlength="120" placeholder="Например, экономика предприятия">
+                </div>
+                <div class="field">
+                  <label class="field__label" for="topic">Тема</label>
+                  <input class="input" type="text" id="topic" name="topic" maxlength="300" placeholder="Если тема уже есть — впишите">
+                  <label class="check check--inline">
+                    <input type="checkbox" name="topic_auto" value="1" id="topicAuto">
+                    <span class="check__box" aria-hidden="true"></span>
+                    <span>Тему подберёт исполнитель</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="grid-2">
+                <div class="field">
+                  <label class="field__label" for="university">ВУЗ <span class="opt">необязательно</span></label>
+                  <input class="input" type="text" id="university" name="university" maxlength="120" placeholder="Название или сокращение">
+                </div>
+                <div class="field">
+                  <div class="field__label">Курс <span class="opt">необязательно</span></div>
+                  <div class="chips" role="radiogroup" aria-label="Курс">
+                    <label class="chip"><input type="radio" name="course" value="1"><span>1</span></label>
+                    <label class="chip"><input type="radio" name="course" value="2"><span>2</span></label>
+                    <label class="chip"><input type="radio" name="course" value="3"><span>3</span></label>
+                    <label class="chip"><input type="radio" name="course" value="4"><span>4</span></label>
+                    <label class="chip"><input type="radio" name="course" value="5"><span>5</span></label>
+                    <label class="chip"><input type="radio" name="course" value="6"><span>6</span></label>
+                    <label class="chip"><input type="radio" name="course" value="mag"><span>Магистратура</span></label>
+                    <label class="chip"><input type="radio" name="course" value="college"><span>Колледж</span></label>
+                  </div>
+                </div>
+              </div>
+            </fieldset>
+
+            <!-- ШАГ 2: объём, срок, оригинальность -->
+            <fieldset class="step" data-step="1" hidden>
+              <legend class="step__title">Объём и сроки</legend>
+
+              <div class="field" id="volumeField">
+                <label class="field__label" for="volume" id="volumeLabel">Объём</label>
+                <div class="num-stepper" id="volumeNum">
+                  <button type="button" class="num-stepper__btn" data-num="-1" aria-label="Меньше">−</button>
+                  <input class="input num-stepper__input" type="number" id="volume" name="volume" min="1" max="999" inputmode="numeric" placeholder="—">
+                  <button type="button" class="num-stepper__btn" data-num="1" aria-label="Больше">+</button>
+                  <span class="num-stepper__unit" id="volumeUnit">стр.</span>
+                </div>
+                <input class="input" type="text" id="volumeFree" name="volume_free" maxlength="120" placeholder="Опишите объём своими словами" hidden>
+                <p class="field__hint" id="volumeHint">Примерно — точнее уточним в чате.</p>
+              </div>
+
+              <div class="field">
+                <label class="field__label" for="deadline">Срок сдачи</label>
+                <div class="deadline">
+                  <input class="input deadline__date" type="date" id="deadline" name="deadline">
+                  <div class="chips" role="radiogroup" aria-label="Быстрый выбор срока">
+                    <label class="chip"><input type="radio" name="deadline_quick" value="1"><span>Завтра</span></label>
+                    <label class="chip"><input type="radio" name="deadline_quick" value="3"><span>3 дня</span></label>
+                    <label class="chip"><input type="radio" name="deadline_quick" value="7"><span>Неделя</span></label>
+                    <label class="chip"><input type="radio" name="deadline_quick" value="flex"><span>Не горит</span></label>
+                  </div>
+                </div>
+                <p class="field__error" id="deadlineError" role="alert" hidden>Эта дата уже прошла — выберите сегодняшнюю или более позднюю</p>
+              </div>
+
+              <div class="field">
+                <div class="field__label">
+                  <label for="originality">Оригинальность</label>
+                  <output class="range-value" id="originalityOut" for="originality">не выбрано</output>
+                </div>
+                <div class="range-wrap" id="originalityWrap">
+                  <input class="range" type="range" id="originality" name="originality" min="50" max="95" step="5" value="70">
+                  <div class="range-scale" aria-hidden="true"><span>50%</span><span>70%</span><span>95%</span></div>
+                </div>
+                <input type="hidden" name="orig_touched" id="origTouched" value="">
+                <div class="field__sublabel">Система проверки</div>
+                <div class="chips" role="radiogroup" aria-label="Система проверки">
+                  <label class="chip"><input type="radio" name="orig_system" value="Антиплагиат.ВУЗ"><span>Антиплагиат.ВУЗ</span></label>
+                  <label class="chip"><input type="radio" name="orig_system" value="Антиплагиат.ру"><span>Антиплагиат.ру</span></label>
+                  <label class="chip"><input type="radio" name="orig_system" value="eTXT"><span>eTXT</span></label>
+                  <label class="chip"><input type="radio" name="orig_system" value="другая система"><span>Другая</span></label>
+                  <label class="chip"><input type="radio" name="orig_system" value="none"><span>Не нужно</span></label>
+                </div>
+              </div>
+
+              <div class="field">
+                <div class="field__label">Есть методичка или требования преподавателя?</div>
+                <div class="chips" role="radiogroup" aria-label="Методичка">
+                  <label class="chip"><input type="radio" name="manual" value="yes"><span>Да, есть</span></label>
+                  <label class="chip"><input type="radio" name="manual" value="no"><span>Нет</span></label>
+                </div>
+                <div class="hint-box" id="manualHint" hidden>
+                  <span aria-hidden="true">📎</span>
+                  <p>Отлично! После отправки заявки прикрепите файл методички и требования прямо в чат Telegram — я учту их до расчёта цены.</p>
+                </div>
+              </div>
+            </fieldset>
+
+            <!-- ШАГ 3: оформление / дизайн (зависит от типа работы) -->
+            <fieldset class="step" data-step="2" hidden>
+              <legend class="step__title" id="step3Title">Оформление</legend>
+
+              <!-- Для контрольных/РГР/задач оформление — по желанию -->
+              <div class="field" id="fmtOptional" hidden>
+                <label class="switch-row switch-row--card">
+                  <span>
+                    <b>Нужно оформить в Word по требованиям</b>
+                    <small>Включите, если работу нужно сдать оформленным текстом, а не только решением</small>
+                  </span>
+                  <span class="switch"><input type="checkbox" name="need_format" value="1" id="needFormat"><span class="switch__track"></span></span>
+                </label>
+              </div>
+
+              <!-- Оформление текста -->
+              <div class="design-block" id="fmtBlock" hidden>
+                <div class="field">
+                  <div class="field__label">Стандарт оформления</div>
+                  <div class="chips" role="radiogroup" aria-label="Стандарт оформления">
+                    <label class="chip"><input type="radio" name="fmt_standard" value="ГОСТ"><span>ГОСТ</span></label>
+                    <label class="chip"><input type="radio" name="fmt_standard" value="по методичке ВУЗа"><span>По методичке ВУЗа</span></label>
+                    <label class="chip"><input type="radio" name="fmt_standard" value="свободное"><span>Свободно</span></label>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <div class="field__label">Шрифт</div>
+                  <div class="font-grid" role="radiogroup" aria-label="Шрифт">
+                    <label class="font-card"><input type="radio" name="fmt_font" value="Times New Roman"><span class="font-card__inner"><span class="font-card__sample ff-times">Аа Бб</span><span class="font-card__name">Times New Roman</span></span></label>
+                    <label class="font-card"><input type="radio" name="fmt_font" value="Arial"><span class="font-card__inner"><span class="font-card__sample ff-arial">Аа Бб</span><span class="font-card__name">Arial</span></span></label>
+                    <label class="font-card"><input type="radio" name="fmt_font" value="Calibri"><span class="font-card__inner"><span class="font-card__sample ff-calibri">Аа Бб</span><span class="font-card__name">Calibri</span></span></label>
+                    <label class="font-card"><input type="radio" name="fmt_font" value="other"><span class="font-card__inner"><span class="font-card__sample">Аа ?</span><span class="font-card__name">Другой</span></span></label>
+                  </div>
+                  <input class="input reveal-input" type="text" name="fmt_font_other" id="fmtFontOther" maxlength="60" placeholder="Какой шрифт?" hidden>
+                  <p class="font-preview" id="fontPreview" hidden>Пример текста: «Введение. Актуальность темы исследования обусловлена…»</p>
+                </div>
+
+                <div class="grid-2">
+                  <div class="field">
+                    <div class="field__label">Кегль</div>
+                    <div class="chips" role="radiogroup" aria-label="Кегль">
+                      <label class="chip"><input type="radio" name="fmt_size" value="12"><span>12</span></label>
+                      <label class="chip"><input type="radio" name="fmt_size" value="14"><span>14</span></label>
+                      <label class="chip"><input type="radio" name="fmt_size" value="other"><span>Другой</span></label>
+                    </div>
+                    <input class="input input--short" type="number" name="fmt_size_other" id="fmtSizeOther" min="8" max="28" inputmode="numeric" placeholder="Кегль" hidden>
+                  </div>
+                  <div class="field">
+                    <div class="field__label">Межстрочный интервал</div>
+                    <div class="chips" role="radiogroup" aria-label="Межстрочный интервал">
+                      <label class="chip"><input type="radio" name="fmt_spacing" value="1.0"><span>1.0</span></label>
+                      <label class="chip"><input type="radio" name="fmt_spacing" value="1.5"><span>1.5</span></label>
+                      <label class="chip"><input type="radio" name="fmt_spacing" value="2.0"><span>2.0</span></label>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="grid-2">
+                  <div class="field">
+                    <div class="field__label">Поля страницы</div>
+                    <div class="chips" role="radiogroup" aria-label="Поля страницы">
+                      <label class="chip"><input type="radio" name="fmt_margins" value="стандартные ГОСТ"><span>Стандартные ГОСТ</span></label>
+                      <label class="chip"><input type="radio" name="fmt_margins" value="по методичке"><span>По методичке</span></label>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <div class="field__label">Язык работы</div>
+                    <div class="chips" role="radiogroup" aria-label="Язык работы">
+                      <label class="chip"><input type="radio" name="lang" value="русский"><span>Русский</span></label>
+                      <label class="chip"><input type="radio" name="lang" value="английский"><span>Английский</span></label>
+                      <label class="chip"><input type="radio" name="lang" value="other"><span>Другой</span></label>
+                    </div>
+                    <input class="input" type="text" name="lang_other" id="langOther" maxlength="40" placeholder="Какой язык?" hidden>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <div class="field__label">Что нужно в работе</div>
+                  <div class="check-grid">
+                    <label class="check-card"><input type="checkbox" name="parts" value="титульный лист"><span class="check__box" aria-hidden="true"></span><span>Титульный лист</span></label>
+                    <label class="check-card"><input type="checkbox" name="parts" value="содержание"><span class="check__box" aria-hidden="true"></span><span>Содержание</span></label>
+                    <label class="check-card"><input type="checkbox" name="parts" value="список литературы" id="partRefs"><span class="check__box" aria-hidden="true"></span><span>Список литературы</span></label>
+                    <label class="check-card"><input type="checkbox" name="parts" value="приложения"><span class="check__box" aria-hidden="true"></span><span>Приложения</span></label>
+                    <label class="check-card"><input type="checkbox" name="parts" value="рисунки, таблицы, графики"><span class="check__box" aria-hidden="true"></span><span>Рисунки, таблицы, графики</span></label>
+                    <label class="check-card"><input type="checkbox" name="parts" value="расчёты"><span class="check__box" aria-hidden="true"></span><span>Расчёты</span></label>
+                  </div>
+                  <div class="inline-field" id="refsCountWrap" hidden>
+                    <label for="refsCount">Сколько источников?</label>
+                    <input class="input input--short" type="number" id="refsCount" name="refs_count" min="1" max="300" inputmode="numeric" placeholder="20">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Дизайн презентации -->
+              <div class="design-block" id="presBlock" hidden>
+                <div class="field">
+                  <div class="field__label">Стиль</div>
+                  <div class="style-grid" id="styleGrid" role="radiogroup" aria-label="Стиль презентации">
+                    <label class="style-card"><input type="radio" name="pr_style" value="строгий академический"><span class="style-card__inner"><span class="slide slide--academic"><i></i><b></b><b></b><b class="s"></b></span><span class="style-card__name">Строгий академический</span></span></label>
+                    <label class="style-card"><input type="radio" name="pr_style" value="минимализм"><span class="style-card__inner"><span class="slide slide--minimal"><i></i><b></b></span><span class="style-card__name">Минимализм</span></span></label>
+                    <label class="style-card"><input type="radio" name="pr_style" value="современный/яркий"><span class="style-card__inner"><span class="slide slide--bright"><i></i><b></b><em></em></span><span class="style-card__name">Современный, яркий</span></span></label>
+                    <label class="style-card"><input type="radio" name="pr_style" value="корпоративный"><span class="style-card__inner"><span class="slide slide--corp"><i></i><b></b><b></b><em></em><em></em></span><span class="style-card__name">Корпоративный</span></span></label>
+                    <label class="style-card"><input type="radio" name="pr_style" value="креативный"><span class="style-card__inner"><span class="slide slide--creative"><i></i><b></b><em></em><em></em></span><span class="style-card__name">Креативный</span></span></label>
+                    <label class="style-card"><input type="radio" name="pr_style" value="на усмотрение исполнителя"><span class="style-card__inner"><span class="slide slide--any"><i>?</i></span><span class="style-card__name">На усмотрение исполнителя</span></span></label>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <div class="field__label">Цветовая гамма</div>
+                  <div class="palette-grid" id="paletteGrid" role="radiogroup" aria-label="Цветовая гамма"></div>
+                  <input class="input" type="text" name="pr_palette_custom" id="paletteCustom" maxlength="80" placeholder="Опишите цвета: например, бордовый и бежевый" hidden>
+                </div>
+
+                <div class="field">
+                  <div class="field__label">Шрифт презентации</div>
+                  <div class="pfont-grid" id="pfontGrid" role="radiogroup" aria-label="Шрифт презентации"></div>
+                  <div class="slide-preview" id="slidePreview" aria-live="polite">
+                    <span class="slide-preview__tag">Живое превью</span>
+                    <span class="slide-preview__title" id="slidePreviewTitle">Тема вашей презентации</span>
+                    <span class="slide-preview__text">Подзаголовок · Студент 3 курса</span>
+                  </div>
+                </div>
+
+                <div class="grid-2">
+                  <div class="field">
+                    <div class="field__label">Формат</div>
+                    <div class="chips" role="radiogroup" aria-label="Формат презентации">
+                      <label class="chip"><input type="radio" name="pr_format" value="PowerPoint"><span>PowerPoint</span></label>
+                      <label class="chip"><input type="radio" name="pr_format" value="Google Slides"><span>Google Slides</span></label>
+                      <label class="chip"><input type="radio" name="pr_format" value="PDF"><span>PDF</span></label>
+                      <label class="chip"><input type="radio" name="pr_format" value="Canva"><span>Canva</span></label>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <div class="field__label">Анимации</div>
+                    <div class="chips" role="radiogroup" aria-label="Анимации">
+                      <label class="chip"><input type="radio" name="pr_anim" value="без анимаций"><span>Без</span></label>
+                      <label class="chip"><input type="radio" name="pr_anim" value="минимальные анимации"><span>Минимальные</span></label>
+                      <label class="chip"><input type="radio" name="pr_anim" value="активные анимации"><span>Активные</span></label>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="grid-2">
+                  <div class="field">
+                    <div class="field__label">Нужен текст выступления?</div>
+                    <div class="chips" role="radiogroup" aria-label="Текст выступления">
+                      <label class="chip"><input type="radio" name="pr_speech" value="yes"><span>Да</span></label>
+                      <label class="chip"><input type="radio" name="pr_speech" value="no"><span>Нет</span></label>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <div class="field__label">Шаблон ВУЗа</div>
+                    <div class="chips" role="radiogroup" aria-label="Шаблон ВУЗа">
+                      <label class="chip"><input type="radio" name="pr_template" value="yes"><span>Есть, отправлю в чат</span></label>
+                      <label class="chip"><input type="radio" name="pr_template" value="no"><span>Нет</span></label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Параметры чертежей -->
+              <div class="design-block" id="drawBlock" hidden>
+                <div class="field">
+                  <div class="field__label">В какой программе</div>
+                  <div class="chips" role="radiogroup" aria-label="Программа">
+                    <label class="chip"><input type="radio" name="dr_soft" value="AutoCAD"><span>AutoCAD</span></label>
+                    <label class="chip"><input type="radio" name="dr_soft" value="КОМПАС-3D"><span>КОМПАС-3D</span></label>
+                    <label class="chip"><input type="radio" name="dr_soft" value="SolidWorks"><span>SolidWorks</span></label>
+                    <label class="chip"><input type="radio" name="dr_soft" value="от руки"><span>От руки</span></label>
+                    <label class="chip"><input type="radio" name="dr_soft" value="не важно"><span>Не важно</span></label>
+                  </div>
+                </div>
+                <div class="field">
+                  <div class="field__label">Формат листа</div>
+                  <div class="chips" role="radiogroup" aria-label="Формат листа">
+                    <label class="chip"><input type="radio" name="dr_format" value="А4"><span>А4</span></label>
+                    <label class="chip"><input type="radio" name="dr_format" value="А3"><span>А3</span></label>
+                    <label class="chip"><input type="radio" name="dr_format" value="А2"><span>А2</span></label>
+                    <label class="chip"><input type="radio" name="dr_format" value="А1"><span>А1</span></label>
+                    <label class="chip"><input type="radio" name="dr_format" value="по заданию"><span>По заданию</span></label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="hint-box hint-box--soft" id="noDesign" hidden>
+                <span aria-hidden="true">✨</span>
+                <p>Для этого типа работы особых настроек оформления нет — все пожелания напишите на следующем шаге в комментарии.</p>
+              </div>
+            </fieldset>
+
+            <!-- ШАГ 4: доп. услуги, комментарий -->
+            <fieldset class="step" data-step="3" hidden>
+              <legend class="step__title">Последние штрихи</legend>
+
+              <div class="field">
+                <div class="field__label">Дополнительные услуги</div>
+                <div class="extra-grid">
+                  <label class="extra-card"><input type="checkbox" name="extras" value="речь для защиты"><span class="extra-card__inner"><span class="extra-card__icon" aria-hidden="true">🎤</span><span><b>Речь для защиты</b><small>Текст доклада на 5–7 минут</small></span></span></label>
+                  <label class="extra-card"><input type="checkbox" name="extras" value="раздаточный материал"><span class="extra-card__inner"><span class="extra-card__icon" aria-hidden="true">🗂</span><span><b>Раздаточный материал</b><small>Для комиссии и преподавателя</small></span></span></label>
+                  <label class="extra-card"><input type="checkbox" name="extras" value="сопровождение до защиты"><span class="extra-card__inner"><span class="extra-card__icon" aria-hidden="true">🤝</span><span><b>Сопровождение до защиты</b><small>Правки и ответы на вопросы</small></span></span></label>
+                  <label class="extra-card"><input type="checkbox" name="extras" value="срочное выполнение"><span class="extra-card__inner"><span class="extra-card__icon" aria-hidden="true">⚡</span><span><b>Срочное выполнение</b><small>Когда сдавать уже скоро</small></span></span></label>
+                </div>
+              </div>
+
+              <div class="field">
+                <label class="field__label" for="comment">Комментарий / особые пожелания</label>
+                <textarea class="input textarea" id="comment" name="comment" rows="4" maxlength="1500" placeholder="Что важно учесть: требования преподавателя, план работы, структура, на что обратить внимание…"></textarea>
+                <p class="field__hint"><span id="commentCount">0</span> / 1500</p>
+              </div>
+
+              <div class="field">
+                <label class="field__label" for="clientName">Как к вам обращаться? <span class="opt">необязательно</span></label>
+                <input class="input" type="text" id="clientName" name="client_name" maxlength="60" placeholder="Имя">
+              </div>
+            </fieldset>
+
+            <!-- Навигация по шагам -->
+            <div class="step-nav">
+              <button type="button" class="btn btn--ghost" id="prevStep" hidden>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+                Назад
+              </button>
+              <button type="button" class="btn btn--primary" id="nextStep">
+                Далее
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+              </button>
+              <button type="button" class="btn btn--primary" id="reviewOrder" hidden>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 4 3 11l6 2.5L11.5 20l3.2-4.2L19.5 19z"/><path d="m9 13.5 6.5-5"/></svg>
+                Отправить заказ в&nbsp;Telegram
+              </button>
+            </div>
+          </form>
+
+          <!-- Живая сводка: на десктопе — сбоку, на телефоне — плашка снизу -->
+          <aside class="summary" id="summary" aria-label="Сводка заказа">
+            <button type="button" class="summary__bar" id="summaryBar" aria-expanded="false" aria-controls="summaryBody">
+              <span class="summary__bar-icon" aria-hidden="true">🧾</span>
+              <span class="summary__bar-text">
+                <b>Ваш заказ</b>
+                <span id="summaryShort">пока пусто</span>
+              </span>
+              <span class="summary__chev" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></svg></span>
+            </button>
+            <div class="summary__body" id="summaryBody">
+              <div class="summary__head">
+                <h3>Ваш заказ</h3>
+                <span class="summary__filled" id="summaryFilled">0 полей</span>
+              </div>
+              <ul class="summary__list" id="summaryList"></ul>
+              <p class="summary__empty" id="summaryEmpty">Выберите тип работы — сводка будет собираться здесь по мере заполнения.</p>
+              <div class="summary__price">
+                <span aria-hidden="true">💬</span>
+                <span>Стоимость — индивидуально, обсудим в Telegram</span>
+              </div>
+              <button type="button" class="btn btn--primary btn--block" id="summarySend">Отправить заказ в&nbsp;Telegram</button>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ КАК ЭТО РАБОТАЕТ ============================ -->
+    <section class="section" id="how">
+      <div class="container">
+        <div class="section__head reveal">
+          <p class="eyebrow">Как это работает</p>
+          <h2 class="section__title">Четыре простых шага</h2>
+        </div>
+        <ol class="how">
+          <li class="how__item card reveal">
+            <span class="how__num">1</span>
+            <span class="how__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M17.5 14v7M14 17.5h7"/></svg></span>
+            <h3>Собрали заказ</h3>
+            <p>Отметьте в конструкторе тип работы, объём, срок и требования — сколько знаете.</p>
+          </li>
+          <li class="how__item card reveal">
+            <span class="how__num">2</span>
+            <span class="how__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21 4 3 11l6 2.5L11.5 20l3.2-4.2L19.5 19z"/><path d="m9 13.5 6.5-5"/></svg></span>
+            <h3>Написали в Telegram</h3>
+            <p>Заявка подставится в чат автоматически и скопируется в буфер. Прикрепите методичку.</p>
+          </li>
+          <li class="how__item card reveal">
+            <span class="how__num">3</span>
+            <span class="how__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.9A8 8 0 1 1 21 12z"/><path d="M9 11h.01M12 11h.01M15 11h.01"/></svg></span>
+            <h3>Обсудили детали и цену</h3>
+            <p>Уточню нюансы, назову стоимость и срок. Вы решаете — без давления и предоплат вслепую.</p>
+          </li>
+          <li class="how__item card reveal">
+            <span class="how__num">4</span>
+            <span class="how__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <h3>Получили работу</h3>
+            <p>Готовая работа в срок, а если преподаватель попросит правки — внесу бесплатно.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ============================ ПРИМЕРЫ РАБОТ ============================ -->
+    <section class="section" id="works">
+      <div class="container">
+        <div class="section__head reveal">
+          <p class="eyebrow">Примеры работ</p>
+          <h2 class="section__title">Как выглядит результат</h2>
+          <p class="section__lead">Нажмите на карточку, чтобы рассмотреть подробнее.</p>
+        </div>
+        <div class="works" id="worksGrid"></div>
+      </div>
+    </section>
+
+    <!-- ============================ ОТЗЫВЫ ============================ -->
+    <section class="section" id="reviews">
+      <div class="container">
+        <div class="section__head section__head--row reveal">
+          <div>
+            <p class="eyebrow">Отзывы</p>
+            <h2 class="section__title">Что говорят клиенты</h2>
+          </div>
+          <div class="carousel__ctrls">
+            <button type="button" class="icon-btn icon-btn--outline" id="revPrev" aria-label="Предыдущий отзыв"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
+            <button type="button" class="icon-btn icon-btn--outline" id="revNext" aria-label="Следующий отзыв"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
+          </div>
+        </div>
+        <div class="carousel reveal">
+          <div class="carousel__track" id="reviewsTrack" tabindex="0" aria-label="Отзывы клиентов"></div>
+          <div class="carousel__dots" id="reviewsDots"></div>
+        </div>
+        <div class="reviews__cta reveal" id="reviewsCta" hidden>
+          <button type="button" class="btn btn--ghost" id="openReview" data-sound="pop">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg>
+            Оставить отзыв
+          </button>
+          <p class="reviews__note">Отзывы оставляют сами клиенты — без правок с моей стороны.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ ГАРАНТИИ ============================ -->
+    <section class="section" id="guarantees">
+      <div class="container">
+        <div class="section__head reveal">
+          <p class="eyebrow">Гарантии</p>
+          <h2 class="section__title">Почему со мной спокойно</h2>
+        </div>
+        <div class="perks">
+          <div class="perk card reveal">
+            <span class="perk__icon perk__icon--lav" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 21v-5h5"/></svg></span>
+            <h3>Бесплатные доработки</h3>
+            <p>Правки по замечаниям преподавателя в рамках задания — без доплат.</p>
+          </div>
+          <div class="perk card reveal">
+            <span class="perk__icon perk__icon--mint" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+            <h3>Соблюдение сроков</h3>
+            <p>Срок обсуждаем заранее и держим его. Срочные заказы — тоже возможны.</p>
+          </div>
+          <div class="perk card reveal">
+            <span class="perk__icon perk__icon--peach" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg></span>
+            <h3>ГОСТ или методичка</h3>
+            <p>Оформление строго по требованиям: поля, шрифты, ссылки, список литературы.</p>
+          </div>
+          <div class="perk card reveal">
+            <span class="perk__icon perk__icon--blue" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></span>
+            <h3>Проверка на антиплагиат</h3>
+            <p>Нужный процент оригинальности в той системе, которую использует ваш ВУЗ.</p>
+          </div>
+          <div class="perk card reveal">
+            <span class="perk__icon perk__icon--lav" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
+            <h3>Конфиденциальность</h3>
+            <p>Ваши данные и файлы не передаются третьим лицам и нигде не публикуются.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ FAQ ============================ -->
+    <section class="section" id="faq">
+      <div class="container container--narrow">
+        <div class="section__head reveal">
+          <p class="eyebrow">FAQ</p>
+          <h2 class="section__title">Частые вопросы</h2>
+        </div>
+        <div class="faq" id="faqList"></div>
+      </div>
+    </section>
+
+    <!-- ============================ ФИНАЛЬНЫЙ ПРИЗЫВ ============================ -->
+    <section class="section section--cta">
+      <div class="container">
+        <div class="cta card reveal">
+          <h2>Не парьтесь — напишите</h2>
+          <p>Соберите заказ в конструкторе или просто напишите в Telegram — отвечу и подскажу.</p>
+          <div class="cta__btns">
+            <a href="#builder" class="btn btn--primary btn--lg" data-scroll>Собрать заказ</a>
+            <a href="#" class="btn btn--ghost btn--lg" data-tg-link>Написать в&nbsp;Telegram</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============================ ФУТЕР ============================ -->
+  <footer class="footer">
+    <div class="container footer__inner">
+      <a href="#top" class="logo logo--sm">
+        <span class="logo__mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M9 16.5l4.5 4.5L23 11.5" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span class="logo__text">Не Парься</span>
+      </a>
+      <a href="#" class="btn btn--ghost" data-tg-link>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 4 3 11l6 2.5L11.5 20l3.2-4.2L19.5 19z"/><path d="m9 13.5 6.5-5"/></svg>
+        <span data-tg-handle>Telegram</span>
+      </a>
+      <p class="footer__copy">© <span id="year"></span> «Не Парься». Помощь студентам. <a href="cabinet.html" data-cabinet>Мой кабинет</a> · <a href="admin.html">Для админов</a></p>
+    </div>
+  </footer>
+
+  <!-- Плавающая кнопка Telegram -->
+  <a href="#" class="fab" id="fab" aria-label="Написать в Telegram" data-sound="pop">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 4 3 11l6 2.5L11.5 20l3.2-4.2L19.5 19z"/><path d="m9 13.5 6.5-5"/></svg>
+  </a>
+
+  <!-- Модальное окно: превью заявки -->
+  <dialog class="modal" id="previewModal" aria-labelledby="previewTitle">
+    <div class="modal__box">
+      <button type="button" class="icon-btn modal__close" data-close aria-label="Закрыть"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      <h3 class="modal__title" id="previewTitle">Проверьте заявку</h3>
+      <p class="modal__lead">Так сообщение придёт в Telegram. Текст также скопируется в буфер обмена.</p>
+      <pre class="modal__msg" id="previewText"></pre>
+      <p class="modal__note" id="previewNote" hidden></p>
+      <div class="modal__btns">
+        <button type="button" class="btn btn--ghost" data-close>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+          Изменить
+        </button>
+        <a class="btn btn--primary" id="sendTelegram" href="#" target="_blank" rel="noopener" data-sound="none">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 4 3 11l6 2.5L11.5 20l3.2-4.2L19.5 19z"/><path d="m9 13.5 6.5-5"/></svg>
+          Отправить в&nbsp;Telegram
+        </a>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Лайтбокс для примеров работ -->
+  <dialog class="modal lightbox" id="lightbox" aria-labelledby="lbTitle">
+    <div class="modal__box lightbox__box">
+      <button type="button" class="icon-btn modal__close" data-close aria-label="Закрыть"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      <div class="lightbox__media" id="lbMedia"></div>
+      <div class="lightbox__info">
+        <span class="tag" id="lbType"></span>
+        <h3 class="modal__title" id="lbTitle"></h3>
+        <p id="lbDesc"></p>
+      </div>
+      <div class="lightbox__nav">
+        <button type="button" class="icon-btn icon-btn--outline" id="lbPrev" aria-label="Предыдущая работа"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
+        <span id="lbCount"></span>
+        <button type="button" class="icon-btn icon-btn--outline" id="lbNext" aria-label="Следующая работа"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Окно «Оставить отзыв» -->
+  <dialog class="modal" id="reviewModal" aria-labelledby="reviewTitle">
+    <div class="modal__box">
+      <button type="button" class="icon-btn modal__close" data-close aria-label="Закрыть"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      <h3 class="modal__title" id="reviewTitle">Оставить отзыв</h3>
+      <p class="modal__lead" id="reviewLead">Отзыв появится на сайте сразу после отправки.</p>
+      <form class="review-form" id="reviewForm" novalidate autocomplete="off">
+        <div class="field">
+          <div class="field__label">Оценка <span class="req" aria-hidden="true">*</span></div>
+          <div class="stars-input" role="radiogroup" aria-label="Оценка от 1 до 5">
+            <label class="star"><input type="radio" name="rating" value="5" aria-label="5 из 5"><span aria-hidden="true">★</span></label>
+            <label class="star"><input type="radio" name="rating" value="4" aria-label="4 из 5"><span aria-hidden="true">★</span></label>
+            <label class="star"><input type="radio" name="rating" value="3" aria-label="3 из 5"><span aria-hidden="true">★</span></label>
+            <label class="star"><input type="radio" name="rating" value="2" aria-label="2 из 5"><span aria-hidden="true">★</span></label>
+            <label class="star"><input type="radio" name="rating" value="1" aria-label="1 из 5"><span aria-hidden="true">★</span></label>
+            <span class="stars-caption" id="ratingCaption">Выберите оценку</span>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="field">
+            <label class="field__label" for="rvName">Имя <span class="req" aria-hidden="true">*</span></label>
+            <input class="input" type="text" id="rvName" name="name" maxlength="60" placeholder="Как подписать отзыв" required>
+          </div>
+          <div class="field">
+            <label class="field__label" for="rvUni">ВУЗ, курс <span class="opt">необязательно</span></label>
+            <input class="input" type="text" id="rvUni" name="university" maxlength="80" placeholder="Например, 3 курс">
+          </div>
+        </div>
+        <div class="field">
+          <div class="field__label">Какую работу заказывали <span class="opt">необязательно</span></div>
+          <div class="chips" id="rvWork" role="radiogroup" aria-label="Тип работы"></div>
+        </div>
+        <div class="field">
+          <label class="field__label" for="rvText">Отзыв <span class="req" aria-hidden="true">*</span></label>
+          <textarea class="input textarea" id="rvText" name="message" rows="4" maxlength="1000" placeholder="Что понравилось, уложились ли в срок, как прошла сдача…" required></textarea>
+          <p class="field__hint"><span id="rvCount">0</span> / 1000 · минимум 10 символов</p>
+        </div>
+        <!-- Ловушка для спам-ботов: людям не видна -->
+        <div class="hp" aria-hidden="true"><label>Не заполняйте это поле <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+        <p class="field__error" id="reviewError" role="alert" hidden></p>
+        <div class="modal__btns">
+          <button type="button" class="btn btn--ghost" data-close>Отмена</button>
+          <button type="submit" class="btn btn--primary" id="reviewSubmit" data-sound="none">Опубликовать отзыв</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <div class="toasts" id="toasts" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Telegram Mini App: нужен, чтобы сайт внутри Telegram мог передать заказ боту -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="config.js"></script>
+  <script src="sounds.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

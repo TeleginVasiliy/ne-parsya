@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Админ-панель — Не Парься</title>
+  <meta name="robots" content="noindex, nofollow">
+  <script>
+    (function () {
+      var t = null;
+      try { t = localStorage.getItem('np-theme'); } catch (e) {}
+      if (t !== 'light' && t !== 'dark') t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body class="panel">
+  <header class="p-header">
+    <div class="p-header__inner">
+      <a href="index.html" class="logo">
+        <span class="logo__mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M9 16.5l4.5 4.5L23 11.5" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span class="logo__text">Админ-панель</span>
+      </a>
+      <div class="p-header__right" id="who" hidden>
+        <span id="whoEmail"></span>
+        <button type="button" class="btn btn--ghost btn--sm" id="reload">↻</button>
+        <button type="button" class="btn btn--ghost btn--sm" id="logout">Выйти</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="p-wrap">
+    <!-- Вход -->
+    <form class="login" id="loginForm" hidden>
+      <h1>Вход для админов</h1>
+      <p class="p-muted">E-mail и пароль, которые владелец создал в Supabase (см. README).</p>
+      <label>E-mail <input class="input" type="email" id="email" autocomplete="username" required></label>
+      <label>Пароль <input class="input" type="password" id="password" autocomplete="current-password" required></label>
+      <p class="p-error" id="loginError" hidden></p>
+      <button class="btn btn--primary" type="submit" id="loginBtn">Войти</button>
+    </form>
+
+    <!-- Панель -->
+    <section id="app" hidden>
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" aria-selected="true" data-tab="report">📊 Отчёт</button>
+        <button type="button" role="tab" aria-selected="false" data-tab="orders">📦 Заказы</button>
+      </div>
+      <p class="p-muted" id="syncNote" style="margin:-8px 0 16px"></p>
+
+      <div id="tab-report">
+        <div class="kpis" id="kpis"></div>
+        <div class="charts">
+          <div class="chart">
+            <h3>Выручка по месяцам</h3>
+            <p>Подтверждённые оплаты, ₽ · последние 6 месяцев</p>
+            <div class="vbars" id="revBars" role="img" aria-label="Выручка по месяцам"></div>
+            <div class="vlabels" id="revLabels" aria-hidden="true"></div>
+          </div>
+          <div class="chart">
+            <h3>Заказы по типам работ</h3>
+            <p>Количество заказов за всё время</p>
+            <div class="hbars" id="typeBars"></div>
+          </div>
+        </div>
+        <div class="chart" style="margin-top:14px">
+          <h3>По админам</h3>
+          <p>Кто сколько заказов ведёт и сколько по ним оплачено</p>
+          <div class="table-wrap"><table class="orders-t" id="adminTable"></table></div>
+        </div>
+      </div>
+
+      <div id="tab-orders" hidden>
+        <div class="filters">
+          <input class="input" type="search" id="q" placeholder="Поиск: номер, имя, предмет…" aria-label="Поиск">
+          <select class="input" id="fStatus" aria-label="Статус"><option value="">Все статусы</option></select>
+        </div>
+        <div class="table-wrap"><table class="orders-t" id="ordersTable"></table></div>
+      </div>
+    </section>
+    <p class="p-error" id="fatal" hidden></p>
+  </main>
+
+  <!-- Карточка заказа -->
+  <dialog class="drawer" id="drawer">
+    <div class="drawer__box" id="drawerBox"></div>
+  </dialog>
+  <div class="tip" id="tip" hidden></div>
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <script src="config.js"></script>
+  <script src="sb.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

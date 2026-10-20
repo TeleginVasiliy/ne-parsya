@@ -1,0 +1,153 @@
+/* ==========================================================================
+   «Не Парься» — кабинет клиента и админ-панель.
+   Цвета и шрифты — из styles.css (те же токены, обе темы).
+   ========================================================================== */
+
+:root {
+  --chart-bar: #6c58e0;          /* проверено валидатором: светлая тема */
+  --chart-track: #eeeaf8;
+  --st-new-bg: var(--blue);   --st-new-ink: var(--blue-ink);
+  --st-pay-bg: #fff1cc;       --st-pay-ink: #8a5a00;
+  --st-work-bg: var(--lav);   --st-work-ink: var(--lav-ink);
+  --st-review-bg: var(--mint); --st-review-ink: var(--mint-ink);
+  --st-done-bg: #d7f5e3;      --st-done-ink: #17663f;
+  --st-cancel-bg: #eceaf1;    --st-cancel-ink: #5b5770;
+}
+:root[data-theme='dark'] {
+  --chart-bar: #8d79f5;          /* проверено валидатором: тёмная тема */
+  --chart-track: #22222e;
+  --st-pay-bg: rgba(255, 196, 70, 0.14); --st-pay-ink: #ffcf6e;
+  --st-done-bg: rgba(80, 220, 140, 0.14); --st-done-ink: #7fe3a8;
+  --st-cancel-bg: rgba(255, 255, 255, 0.07); --st-cancel-ink: #b2b0c4;
+}
+
+body.panel { background: var(--bg); min-height: 100vh; }
+.p-header {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+  background: var(--header-bg); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+}
+.p-header__inner { max-width: 1100px; margin: 0 auto; height: 60px; display: flex; align-items: center; gap: 12px;
+  padding: 0 max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px)); }
+.p-header .logo { font-size: 16px; }
+.p-header__right { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-2); }
+.p-wrap { max-width: 1100px; margin: 0 auto; padding: 24px max(16px, env(safe-area-inset-right, 0px)) 80px max(16px, env(safe-area-inset-left, 0px)); }
+.p-title { font-family: var(--font-display); font-weight: 600; font-size: clamp(24px, 6vw, 34px); letter-spacing: -0.02em; margin: 4px 0 6px; text-wrap: balance; }
+.p-lead { color: var(--text-2); margin-bottom: 20px; }
+.p-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.p-muted { color: var(--text-3); font-size: 14px; }
+.p-empty { padding: 40px 20px; text-align: center; color: var(--text-2); border: 1.5px dashed var(--border-strong); border-radius: var(--radius-lg); }
+.p-empty b { display: block; color: var(--text); font-size: 18px; margin-bottom: 6px; }
+.btn--sm { min-height: 38px; padding: 8px 14px; font-size: 14px; border-radius: 12px; }
+.p-spin { width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid var(--border-strong); border-top-color: var(--accent); animation: p-spin 0.8s linear infinite; display: inline-block; }
+@keyframes p-spin { to { transform: rotate(360deg); } }
+
+/* Статусы: цвет + текст (никогда не только цвет) */
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+.pill[data-s='new'] { background: var(--st-new-bg); color: var(--st-new-ink); }
+.pill[data-s='awaiting_payment'], .pill[data-s='awaiting_final'] { background: var(--st-pay-bg); color: var(--st-pay-ink); }
+.pill[data-s='in_work'] { background: var(--st-work-bg); color: var(--st-work-ink); }
+.pill[data-s='review'] { background: var(--st-review-bg); color: var(--st-review-ink); }
+.pill[data-s='done'] { background: var(--st-done-bg); color: var(--st-done-ink); }
+.pill[data-s='cancelled'] { background: var(--st-cancel-bg); color: var(--st-cancel-ink); }
+
+/* ---------- Кабинет клиента ---------- */
+.orders { display: grid; gap: 14px; }
+.o-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px; display: grid; gap: 14px; box-shadow: var(--shadow-sm); }
+.o-card__head { display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
+.o-card__code { font-family: var(--font-display); font-weight: 600; font-size: 18px; }
+.o-card__type { color: var(--text-2); font-size: 14px; margin-top: 2px; }
+.steps { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.steps span { height: 6px; border-radius: 6px; background: var(--chart-track); }
+.steps span.on { background: var(--chart-bar); }
+.steps-labels { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; font-size: 11px; color: var(--text-3); text-align: center; }
+.money { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.money div { background: var(--surface-2); border-radius: 14px; padding: 10px 12px; min-width: 0; }
+.money small { display: block; font-size: 12px; color: var(--text-3); font-weight: 600; }
+.money b { font-size: 16px; font-variant-numeric: tabular-nums; }
+.pay-box { border: 1.5px solid var(--accent); background: var(--accent-soft); border-radius: 16px; padding: 14px; display: grid; gap: 8px; }
+.pay-box__details { white-space: pre-line; font-size: 14.5px; line-height: 1.6; overflow-wrap: anywhere; }
+.pay-box code { font-family: ui-monospace, Menlo, Consolas, monospace; background: var(--surface); padding: 2px 6px; border-radius: 6px; cursor: copy; }
+.files { display: grid; gap: 8px; }
+.file-link { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); color: var(--text); font-weight: 600; font-size: 14px; overflow-wrap: anywhere; }
+.file-link:hover { background: var(--surface-3); }
+.file-link::before { content: '📎'; }
+details.o-more summary { cursor: pointer; font-weight: 700; font-size: 14px; color: var(--accent-ink); }
+.o-lines { margin: 10px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 14px; }
+.o-lines li { display: grid; grid-template-columns: 22px 1fr; gap: 6px; overflow-wrap: anywhere; }
+.o-lines b { font-weight: 700; }
+
+/* ---------- Админ-панель ---------- */
+.login { max-width: 400px; margin: 8vh auto 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 26px; display: grid; gap: 14px; box-shadow: var(--card-glow); }
+.login h1 { font-family: var(--font-display); font-weight: 600; font-size: 22px; margin: 0; }
+.login label { display: grid; gap: 6px; font-weight: 600; font-size: 14px; }
+.p-error { color: var(--danger); font-weight: 600; font-size: 14px; }
+.tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--border); margin-bottom: 20px; overflow-x: auto; }
+.tabs button { padding: 10px 14px; font-weight: 700; color: var(--text-3); border-bottom: 2.5px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.tabs button[aria-selected='true'] { color: var(--text); border-color: var(--accent); }
+.kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 22px; }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 14px 16px; min-width: 0; }
+.kpi small { display: block; color: var(--text-3); font-weight: 600; font-size: 12.5px; }
+.kpi b { display: block; font-family: var(--font-display); font-weight: 600; font-size: clamp(20px, 5vw, 26px); font-variant-numeric: tabular-nums; margin-top: 4px; }
+.kpi span { font-size: 12.5px; color: var(--text-2); }
+.charts { display: grid; gap: 14px; }
+.chart { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px; min-width: 0; }
+.chart h3 { font-size: 16px; margin: 0 0 4px; }
+.chart p { font-size: 13px; color: var(--text-3); margin-bottom: 14px; }
+/* Вертикальные столбцы: выручка по месяцам */
+.vbars { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; align-items: end; height: 200px; border-bottom: 1px solid var(--border); position: relative; }
+.vbar { position: relative; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; cursor: default; }
+.vbar i { display: block; background: var(--chart-bar); border-radius: 4px 4px 0 0; min-height: 2px; transition: opacity 0.15s; }
+.vbar:hover i, .vbar:focus i { opacity: 0.8; }
+.vbar em { font-style: normal; font-size: 11.5px; font-weight: 700; color: var(--text-2); text-align: center; margin-bottom: 4px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.vlabels { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; font-size: 11.5px; color: var(--text-3); text-align: center; margin-top: 6px; }
+/* Горизонтальные столбцы: заказы по типам */
+.hbars { display: grid; gap: 10px; }
+.hbar { display: grid; grid-template-columns: minmax(90px, 34%) 1fr auto; gap: 10px; align-items: center; font-size: 13.5px; }
+.hbar__name { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hbar__track { height: 14px; display: flex; }
+.hbar__track i { display: block; height: 100%; background: var(--chart-bar); border-radius: 0 4px 4px 0; min-width: 2px; }
+.hbar b { font-variant-numeric: tabular-nums; font-size: 13px; }
+.tip { position: fixed; z-index: 60; pointer-events: none; background: var(--text); color: var(--bg); font-size: 13px; font-weight: 600; padding: 8px 10px; border-radius: 10px; box-shadow: var(--shadow); white-space: nowrap; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+table.orders-t { width: 100%; border-collapse: collapse; font-size: 14px; }
+.orders-t th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-3); padding: 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.orders-t td { padding: 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.orders-t tr:last-child td { border-bottom: 0; }
+.orders-t tbody tr { cursor: pointer; }
+.orders-t tbody tr:hover { background: var(--surface-2); }
+.orders-t .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.filters .input { width: auto; flex: 1 1 200px; min-height: 42px; }
+.filters select.input { flex: 0 1 220px; }
+.drawer { border: 0; padding: 0; background: transparent; width: 100%; max-width: 100%; height: 100%; max-height: 100%; margin: 0; }
+.drawer[open] { display: flex; justify-content: flex-end; }
+.drawer::backdrop { background: rgba(10, 8, 25, 0.5); }
+.drawer__box { width: min(560px, 100%); height: 100%; overflow-y: auto; background: var(--bg); border-left: 1px solid var(--border); padding: 20px max(16px, env(safe-area-inset-right, 0px)) 40px 20px; display: grid; gap: 16px; align-content: start; }
+.drawer__head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.section-box { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 16px; display: grid; gap: 10px; }
+.section-box h4 { margin: 0; font-size: 15px; }
+.section-box form { display: grid; gap: 8px; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 14px; }
+.kv dt { color: var(--text-3); font-weight: 600; }
+.kv dd { margin: 0; overflow-wrap: anywhere; }
+.act-list { display: grid; gap: 6px; font-size: 13.5px; }
+.act-list div { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.act-state { font-weight: 700; font-size: 12px; padding: 2px 8px; border-radius: 999px; }
+.act-state[data-s='pending'] { background: var(--st-pay-bg); color: var(--st-pay-ink); }
+.act-state[data-s='done'] { background: var(--st-done-bg); color: var(--st-done-ink); }
+.act-state[data-s='error'] { background: var(--danger-soft); color: var(--danger); }
+
+@media (min-width: 720px) {
+  .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .charts { grid-template-columns: 1.3fr 1fr; }
+}
+@media (max-width: 719px) {
+  /* Таблица заказов на телефоне — карточками */
+  .orders-t thead { display: none; }
+  .orders-t, .orders-t tbody, .orders-t tr, .orders-t td { display: block; width: 100%; }
+  .orders-t tr { padding: 12px; border-bottom: 1px solid var(--border); display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; }
+  .orders-t td { padding: 0; border: 0; }
+  .orders-t td[data-l]::before { content: attr(data-l) ': '; color: var(--text-3); font-size: 12.5px; }
+  .orders-t .num { text-align: left; }
+}
