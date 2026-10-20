@@ -8,8 +8,14 @@
   'use strict';
 
   var CFG = (window.SITE_CONFIG && window.SITE_CONFIG.supabase) || {};
-  var URL_ = String(CFG.url || '').trim().replace(/\/+$/, '');
-  var KEY = String(CFG.key || '').trim();
+  var sbUrl = function (u) {
+    // Принимает любой вид адреса проекта (из панели, адрес функции, без https) → https://<код>.supabase.co
+    u = String(u || '').trim().replace(/^['"\s]+|['"\s]+$/g, '');
+    var m = u.match(/([a-z0-9]{20})\.supabase\.(co|in)/i) || u.match(/project\/([a-z0-9]{20})/i);
+    return m ? 'https://' + m[1].toLowerCase() + '.supabase.co' : u.replace(/\/+$/, '');
+  };
+  var URL_ = sbUrl(CFG.url);
+  var KEY = String(CFG.key || '').replace(/[\s'"]/g, '');
   var SESSION_KEY = 'np-admin-session';
   var session = null;
 
