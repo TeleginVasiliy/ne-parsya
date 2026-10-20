@@ -453,6 +453,63 @@
     $('#year').textContent = new Date().getFullYear();
   }
 
+  /* ======================= АКТИВНЫЙ ЗАКАЗ КЛИЕНТА ======================= */
+  // В Telegram: бот проверяет подпись Telegram и отдаёт заказы этого клиента.
+  // В браузере: по личному ключу кабинета, если клиент уже открывал кабинет на этом устройстве.
+  var ORDER_STATUS = {
+    new: '🆕 Новый — исполнитель скоро назовёт цену', awaiting_payment: '💳 Ожидает оплаты', in_work: '🛠 В работе',
+    review: '🔎 Готово — проверьте работу', awaiting_final: '💳 Работа готова — ждёт доплаты'
+  };
+  var CAB_KEY = 'np-cabinet-token';
+
+  function money(n) { return Math.round(n || 0).toLocaleString('ru-RU') + ' ₽'; }
+
+  function renderActiveOrders(orders, cabinetUrl) {
+    var box = $('#activeOrderBox');
+    if (!box || !orders || !orders.length) return;
+    box.innerHTML = '<div class="ao-head"><b>📦 ' + (orders.length > 1 ? 'Ваши активные заказы' : 'Ваш активный заказ') + '</b>' +
+      '<a class="btn btn--primary btn--sm" href="' + escAttr(cabinetUrl) + '">Открыть кабинет</a></div>' +
+      orders.slice(0, 3).map(function (o) {
+        var due = o.due ? ' · к оплате <b>' + money(o.due) + '</b>' : (o.price ? ' · ' + money(o.price) : '');
+        return '<div class="ao-row"><span class="ao-code">#' + escHtml(o.code) + '</span>' +
+          '<span>' + escHtml(o.type_name || '') + '</span>' +
+          '<span class="ao-status">' + escHtml(ORDER_STATUS[o.status] || o.status_label || o.status) + due + '</span>' +
+          (o.deadline_text ? '<span class="ao-muted">срок: ' + escHtml(o.deadline_text) + '</span>' : '') + '</div>';
+      }).join('');
+    $('#activeOrder').hidden = false;
+  }
+
+  function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function escAttr(s) { return escHtml(s); }
+
+  function initActiveOrder() {
+    if (!LIVE || !$('#activeOrder')) return;
+    var fn = (CFG.botFunction || 'bot').replace(/[^\w-]/g, '');
+    if (IN_TG && TGW.initData) {
+      fetch(SB.url + '/functions/v1/' + fn + '/api/my', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: TGW.initData })
+      }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+        if (!d || !d.ok) return;
+        var t = d.cabinet && (d.cabinet.match(/[?&]t=([^&#]+)/) || [])[1];
+        if (t) { try { localStorage.setItem(CAB_KEY, decodeURIComponent(t)); } catch (e) { /* без запоминания */ } }
+        renderActiveOrders(d.orders, d.cabinet || 'cabinet.html');
+      }).catch(function () { /* нет связи — просто не показываем */ });
+      return;
+    }
+    var token = '';
+    try { token = localStorage.getItem(CAB_KEY) || ''; } catch (e) { token = ''; }
+    if (token.length < 24) return;
+    api('rpc/client_cabinet', { method: 'POST', body: { p_token: token } }).then(function (d) {
+      if (!d || !d.orders) return;
+      var active = d.orders.filter(function (o) { return ORDER_STATUS[o.status]; }).map(function (o) {
+        var due = o.status === 'awaiting_payment' ? Math.max(0, (o.prepay || o.price || 0) - (o.paid || 0))
+          : o.status === 'awaiting_final' ? Math.max(0, (o.price || 0) - (o.paid || 0)) : 0;
+        return { code: o.code, type_name: o.type_name, status: o.status, price: o.price, due: due, deadline_text: o.deadline_text };
+      });
+      renderActiveOrders(active, 'cabinet.html' + (BOT ? '?bot=' + BOT : ''));
+    }).catch(function () { /* не критично */ });
+  }
+
   /* ======================= 5. СЧЁТЧИКИ И ПОЯВЛЕНИЕ ======================= */
 
   function animateCount(el) {
@@ -534,6 +591,9 @@
   var lastQuick = '';
 
   // Считываем все поля формы в простой объект
+  // «Проверка не нужна» (старые черновики хранили это как orig_system = none)
+  function origDisabled(d) { return (d.orig_none || []).indexOf('yes') !== -1 || d.orig_system === 'none'; }
+
   function readForm() {
     var d = {};
     Array.prototype.forEach.call(form.elements, function (el) {
@@ -610,7 +670,7 @@
     $('#volumeUnit').textContent = vk === 'free' ? '' : (vk === 'pages' ? 'стр.' : plural(isNaN(n) ? 5 : n, vc.forms));
 
     // Оригинальность
-    var origOff = d.orig_system === 'none';
+    var origOff = origDisabled(d);
     var range = $('#originality');
     range.disabled = origOff;
     $('#originalityWrap').classList.toggle('is-disabled', origOff);
@@ -895,12 +955,8 @@
     else if (d.deadline) deadline = ruDate(d.deadline) + (QUICK_LABEL[d.deadline_quick] ? ' (' + QUICK_LABEL[d.deadline_quick] + ')' : '');
     add('⏰', 'Срок', deadline, 1);
 
-    if (d.orig_system === 'none') add('🔍', 'Оригинальность', 'проверка не нужна', 2);
-    else {
-      var pct = d.orig_touched ? d.originality + '%' : '';
-      var sys = d.orig_system || '';
-      add('🔍', 'Оригинальность', pct && sys ? pct + ' (' + sys + ')' : (pct || (sys ? 'система ' + sys : '')), 2);
-    }
+    if (origDisabled(d)) add('🔍', 'Оригинальность', 'проверка не нужна', 2);
+    else if (d.orig_touched) add('🔍', 'Оригинальность', d.originality + '%', 2);
 
     if (d.manual === 'yes') add('📎', 'Методичка', 'есть, пришлю файлом в чат', 2);
     else if (d.manual === 'no') add('📎', 'Методичка', 'нет', 2);
@@ -1513,6 +1569,7 @@
     renderWorks();
     renderFaq();
     initStaticLinks();
+    initActiveOrder();
 
     initModals();
     initBuilder();

@@ -151,3 +151,18 @@ table.orders-t { width: 100%; border-collapse: collapse; font-size: 14px; }
   .orders-t td[data-l]::before { content: attr(data-l) ': '; color: var(--text-3); font-size: 12.5px; }
   .orders-t .num { text-align: left; }
 }
+
+/* Отзывы в админ-панели */
+.rv-list { display: grid; gap: 12px; }
+.rv-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; display: grid; gap: 8px; min-width: 0; }
+.rv-card--hidden { opacity: .65; border-style: dashed; }
+.rv-card .p-row { display: flex; gap: 8px 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.rv-card b { color: var(--text); }
+.rv-off { color: var(--text-3); opacity: .45; }
+.rv-text { margin: 0; color: var(--text-2); white-space: pre-wrap; overflow-wrap: anywhere; }
+.rv-del { color: var(--danger, #d64545); }
+
+/* Форма «Отправить всё клиенту» */
+.send-all { display: grid; gap: 10px; }
+.send-all label { display: grid; gap: 6px; }
+.pay-box__quick { display: flex; flex-wrap: wrap; gap: 8px; }

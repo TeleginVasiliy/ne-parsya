@@ -1,9 +1,9 @@
 /* ==========================================================================
    «Не Парься» — админ-панель.
    Данные выгружает бот в Supabase. Действия (цена, статус, сообщение)
-   записываются в очередь — бот выполняет их у себя и пишет клиенту.
+   записываются в очередь — бот сразу выполняет их и пишет клиенту.
    Готовые работы загружаются прямо в хранилище — клиент сразу видит их
-   в кабинете, а бот отправит их в Telegram.
+   в кабинете, а бот отправит их в Telegram. Отзывы с сайта можно скрыть или удалить.
    ========================================================================== */
 (function () {
   'use strict';
@@ -16,11 +16,11 @@
     awaiting_final: '💳 Ожидает доплаты', done: '✅ Выполнен', cancelled: '❌ Отменён'
   };
   var MANUAL = ['new', 'awaiting_payment', 'in_work', 'review', 'done', 'cancelled'];
-  var ACTION_NAME = { price: 'Цена', status: 'Статус', message: 'Сообщение' };
+  var ACTION_NAME = { price: 'Цена', status: 'Статус', message: 'Сообщение', bundle: 'Отправлено клиенту' };
   var STATE_NAME = { pending: 'отправляется', processing: 'отправляется', done: 'выполнено', error: 'ошибка' };
   var MONTHS = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
 
-  var data = { orders: [], payments: [], files: [], actions: [] };
+  var data = { orders: [], payments: [], files: [], actions: [], reviews: [] };
   var current = null; // открытый заказ
 
   function esc(s) {
@@ -47,7 +47,20 @@
     crypto.getRandomValues(a);
     return Array.prototype.map.call(a, function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
   }
-  function safeName(name) { return String(name || 'file').replace(/[^\w.\-а-яА-ЯёЁ]+/g, '_').slice(-80); }
+  // Адрес файла в хранилище — только латиница (на русских буквах Supabase отвечает «Invalid key»).
+  // Настоящее имя файла сохраняется отдельно и показывается клиенту.
+  var RU = { а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z', и: 'i', й: 'y', к: 'k', л: 'l', м: 'm',
+    н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'h', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'sch', ъ: '', ы: 'y',
+    ь: '', э: 'e', ю: 'yu', я: 'ya' };
+  function safeName(name) {
+    var latin = Array.from(String(name || 'file')).map(function (ch) {
+      var low = ch.toLowerCase();
+      if (!(low in RU)) return ch;
+      var t = RU[low];
+      return ch !== low && t ? t[0].toUpperCase() + t.slice(1) : t;
+    }).join('');
+    return (latin.replace(/[^A-Za-z0-9_.\-]+/g, '_').replace(/_+/g, '_').replace(/^[._]+|[._]+$/g, '') || 'file').slice(-80);
+  }
   function uuid() { return crypto.randomUUID ? crypto.randomUUID() : randomHex(16); }
 
   /* ---------------- вход ---------------- */
@@ -94,15 +107,17 @@
       SB.select('cloud_orders', 'select=*&order=id.desc&limit=2000'),
       SB.select('cloud_payments', 'select=*&order=id.desc&limit=5000'),
       SB.select('cloud_files', 'select=*&order=created_at.desc&limit=5000'),
-      SB.select('cloud_actions', 'select=*&order=id.desc&limit=300')
+      SB.select('cloud_actions', 'select=*&order=id.desc&limit=300'),
+      SB.select('reviews', 'select=*&order=created_at.desc&limit=1000').catch(function () { return []; })
     ]).then(function (r) {
-      data = { orders: r[0] || [], payments: r[1] || [], files: r[2] || [], actions: r[3] || [] };
+      data = { orders: r[0] || [], payments: r[1] || [], files: r[2] || [], actions: r[3] || [], reviews: r[4] || [] };
       var pending = data.actions.filter(function (a) { return a.state === 'pending'; }).length;
       var last = data.orders.reduce(function (m, o) { return o.updated_at > m ? o.updated_at : m; }, '');
       $('#syncNote').textContent = 'Последнее обновление от бота: ' + dt(last) +
-        (pending ? ' · ждут бота: ' + pending + ' действ.' : '');
+        (pending ? ' · в очереди: ' + pending + ' действ.' : '');
       renderReport();
       renderOrders();
+      renderReviews();
       if (current && redraw) openOrder(current.id, true);
     }).catch(function (e) {
       if (e.status === 401) { SB.signOut(); showLogin('Сессия истекла — войдите снова.'); return; }
@@ -267,24 +282,21 @@
       '<div class="section-box"><h4>Заявка</h4><ul class="o-lines">' + (o.lines || []).map(function (l) {
         return '<li><span>' + esc(l[0]) + '</span><span><b>' + esc(l[1]) + ':</b> ' + esc(l[2]) + '</span></li>';
       }).join('') + '</ul></div>' +
-      // действия
+      // одна форма — всё уходит клиенту одним сообщением
+      '<div class="section-box"><h4>📨 Отправить клиенту</h4><form id="fAll" class="send-all">' +
       (['new', 'awaiting_payment'].indexOf(o.status) !== -1 && !o.paid ?
-        '<div class="section-box"><h4>💰 Назначить цену</h4><form id="fPrice">' +
-        '<input class="input" type="number" min="1" step="1" name="price" placeholder="Цена, ₽" required value="' + (o.price || '') + '">' +
-        '<input class="input" name="deadline" maxlength="60" placeholder="Срок: дата или «3 дня»" required value="' + esc(o.deadline_text || '') + '">' +
-        '<button class="btn btn--primary btn--sm">Отправить клиенту предложение</button></form></div>' : '') +
-      '<div class="section-box"><h4>🔄 Статус</h4><form id="fStatusSet" class="p-row"><select class="input" name="status" style="flex:1">' +
-      MANUAL.map(function (s) { return '<option value="' + s + '"' + (s === o.status ? ' selected' : '') + '>' + STATUS[s] + '</option>'; }).join('') +
-      '</select><button class="btn btn--ghost btn--sm">Сменить</button></form></div>' +
-      '<div class="section-box"><h4>📎 Готовая работа</h4><form id="fUpload">' +
-      '<input class="input" type="file" name="files" multiple required>' +
-      '<button class="btn btn--primary btn--sm">Загрузить и отправить клиенту</button>' +
-      '<p class="p-muted">Клиент сразу увидит файлы в кабинете, а бот пришлёт их в Telegram' +
-      (o.price && o.paid < o.price ? ' — после доплаты ' + money(o.price - o.paid) : '') + '.</p></form>' +
+        '<div class="p-row"><input class="input" type="number" min="1" step="1" name="price" placeholder="Цена, ₽" value="' + (o.price || '') + '" style="flex:1">' +
+        '<input class="input" name="deadline" maxlength="60" placeholder="Срок: дата или «3 дня»" value="' + esc(o.deadline_text || '') + '" style="flex:1"></div>' :
+        '<input class="input" name="deadline" maxlength="60" placeholder="Новый срок (если меняется)" value="">') +
+      '<select class="input" name="status"><option value="">Статус — не менять (сейчас: ' + esc(STATUS[o.status] || o.status) + ')</option>' +
+      MANUAL.filter(function (s) { return s !== o.status; }).map(function (s) { return '<option value="' + s + '">' + STATUS[s] + '</option>'; }).join('') +
+      '</select>' +
+      '<textarea class="input textarea" name="text" maxlength="3500" rows="3" placeholder="Сообщение клиенту (необязательно)"></textarea>' +
+      '<label class="p-muted">📎 Готовая работа (необязательно, до 20 МБ на файл)<input class="input" type="file" name="files" multiple></label>' +
+      '<button class="btn btn--primary">📨 Отправить всё клиенту</button>' +
+      '<p class="p-muted">Заполните только то, что нужно, — клиент получит всё одним сообщением в Telegram и увидит в кабинете.' +
+      (o.price && o.paid < o.price ? ' Готовая работа уйдёт после доплаты ' + money(o.price - o.paid) + '.' : '') + '</p></form>' +
       fileList(files.filter(function (f) { return f.kind === 'result'; })) + '</div>' +
-      '<div class="section-box"><h4>💬 Написать клиенту</h4><form id="fMsg">' +
-      '<textarea class="input textarea" name="text" maxlength="3500" rows="3" placeholder="Текст сообщения — уйдёт клиенту от имени бота" required></textarea>' +
-      '<button class="btn btn--ghost btn--sm">Отправить</button></form></div>' +
       '<div class="section-box"><h4>💳 Оплаты</h4>' + (pays.length ? pays.map(function (p) {
         return '<div class="p-row"><b>' + money(p.amount) + '</b><span class="p-muted">' + (p.kind === 'final' ? 'доплата' : 'оплата') + ' · ' +
           ({ pending: 'проверяется', confirmed: 'подтверждена' + (p.confirmed_by ? ' (' + esc(p.confirmed_by) + ')' : ''), rejected: 'не найдена' }[p.status] || p.status) +
@@ -299,7 +311,7 @@
         return '<div><span class="act-state" data-s="' + esc(a.state) + '">' + esc(STATE_NAME[a.state] || a.state) + '</span>' +
           '<b>' + esc(ACTION_NAME[a.action] || a.action) + '</b><span class="p-muted">' + dt(a.created_at) + ' · ' + esc(a.created_by || '') +
           (a.state === 'error' ? ' · ' + esc(a.result) : '') + '</span></div>';
-      }).join('') + '</div><p class="p-muted">«Ждёт бота» — выполнится, как только бот будет запущен.</p></div>' : '');
+      }).join('') + '</div></div>' : '');
     $('#drawerBox').innerHTML = html;
     bindDrawer(o);
     var dlg = $('#drawer');
@@ -314,53 +326,46 @@
     }).join('') + '</div>';
   }
 
-  function queue(order, action, payload, okText) {
-    return SB.insert('cloud_actions', { order_id: order.id, action: action, payload: payload }).then(function () {
-      toast(okText + ' Бот выполнит это в течение ~10 секунд (если запущен).');
-      return loadAll(true);
-    }).catch(function (e) { toast('Не получилось: ' + e.message); });
-  }
-
   function bindDrawer(o) {
     $('#closeDrawer').addEventListener('click', function () { $('#drawer').close(); current = null; });
-    var fp = $('#fPrice');
-    if (fp) fp.addEventListener('submit', function (e) {
+    var fa = $('#fAll');
+    fa.addEventListener('submit', function (e) {
       e.preventDefault();
-      queue(o, 'price', { price: Number(fp.price.value), deadline: fp.deadline.value.trim() }, 'Цена сохранена.');
-    });
-    var fs = $('#fStatusSet');
-    fs.addEventListener('submit', function (e) {
-      e.preventDefault();
-      if (fs.status.value === o.status) { toast('Статус и так такой'); return; }
-      queue(o, 'status', { status: fs.status.value }, 'Статус сохранён.');
-    });
-    var fm = $('#fMsg');
-    fm.addEventListener('submit', function (e) {
-      e.preventDefault();
-      queue(o, 'message', { text: fm.text.value.trim() }, 'Сообщение сохранено.').then(function () { fm.reset(); });
-    });
-    var fu = $('#fUpload');
-    fu.addEventListener('submit', function (e) {
-      e.preventDefault();
-      var files = Array.prototype.slice.call(fu.files.files);
+      var payload = {};
+      var price = fa.price ? fa.price.value.trim() : '';
+      if (price && Number(price) !== o.price) payload.price = Number(price);
+      var deadline = fa.deadline.value.trim();
+      if (deadline && (payload.price || deadline !== (o.deadline_text || ''))) payload.deadline = deadline;
+      if (payload.price && !deadline) { toast('Укажите срок вместе с ценой'); return; }
+      if (fa.status.value) payload.status = fa.status.value;
+      var text = fa.text.value.trim();
+      if (text) payload.text = text;
+      var files = Array.prototype.slice.call(fa.files.files);
       var big = files.filter(function (f) { return f.size > 20 * 1024 * 1024; });
       if (big.length) { toast('Файлы больше 20 МБ Telegram не пропустит: ' + big.map(function (f) { return f.name; }).join(', ')); return; }
-      var btn = fu.querySelector('button');
+      if (!files.length && !Object.keys(payload).length) { toast('Заполните хотя бы одно поле'); return; }
+      var btn = fa.querySelector('button');
       btn.disabled = true;
-      btn.textContent = 'Загружаю…';
+      btn.textContent = files.length ? 'Загружаю файлы…' : 'Отправляю…';
+      var batch = files.length ? uuid() : null;
+      if (batch) payload.batch = batch;
       files.reduce(function (p, f) {
         return p.then(function () {
           var path = randomHex(16) + '/' + safeName(f.name);
           return SB.upload('results', path, f).then(function () {
             return SB.insert('cloud_files', { id: uuid(), order_id: o.id, kind: 'result', name: f.name, bucket: 'results',
-                                              path: path, size: f.size, source: 'site', delivered: false });
+                                              path: path, size: f.size, source: 'site', delivered: false, batch: batch });
           });
         });
       }, Promise.resolve()).then(function () {
-        toast('Загружено файлов: ' + files.length + '. Клиент уже видит их в кабинете.');
+        return SB.insert('cloud_actions', { order_id: o.id, action: 'bundle', payload: payload });
+      }).then(function () {
+        toast('Отправлено! Клиент получит всё одним сообщением.');
+        fa.reset();
+        setTimeout(function () { loadAll(true); }, 2500); // бот выполняет за пару секунд — покажем результат
         return loadAll(true);
-      }).catch(function (err) { toast('Ошибка загрузки: ' + err.message); })
-        .then(function () { btn.disabled = false; btn.textContent = 'Загрузить и отправить клиенту'; });
+      }).catch(function (err) { toast('Не получилось: ' + err.message); })
+        .then(function () { btn.disabled = false; btn.textContent = '📨 Отправить всё клиенту'; });
     });
     $$('.js-sign', $('#drawerBox')).forEach(function (b) {
       b.addEventListener('click', function () {
@@ -374,12 +379,55 @@
   $('#drawer').addEventListener('close', function () { current = null; });
   $('#drawer').addEventListener('click', function (e) { if (e.target === $('#drawer')) $('#drawer').close(); });
 
+  /* ---------------- отзывы ---------------- */
+  function renderReviews() {
+    var list = data.reviews;
+    $('#reviewsList').innerHTML = list.length ? list.map(function (r) {
+      var who = [r.university, r.work].filter(Boolean).map(esc).join(' · ');
+      return '<article class="rv-card' + (r.approved ? '' : ' rv-card--hidden') + '" data-id="' + r.id + '">' +
+        '<div class="p-row"><b>' + '★'.repeat(r.rating) + '<span class="rv-off">' + '★'.repeat(5 - r.rating) + '</span></b>' +
+        '<span class="p-muted">' + dt(r.created_at) + (r.approved ? '' : ' · скрыт с сайта') + '</span></div>' +
+        '<div><b>' + esc(r.name) + '</b>' + (who ? ' <span class="p-muted">' + who + '</span>' : '') + '</div>' +
+        '<p class="rv-text">' + esc(r.message) + '</p>' +
+        '<div class="p-row"><button type="button" class="btn btn--ghost btn--sm" data-rv="toggle">' +
+        (r.approved ? '🙈 Скрыть' : '👁 Показать на сайте') + '</button>' +
+        '<button type="button" class="btn btn--ghost btn--sm rv-del" data-rv="delete">🗑 Удалить</button></div></article>';
+    }).join('') : '<p class="p-muted">Отзывов пока нет.</p>';
+  }
+  function noRights(rows) {
+    if (rows && rows.length) return false;
+    toast('Нет прав на отзывы. Выполните заново supabase-setup.sql в Supabase → SQL Editor.');
+    return true;
+  }
+  $('#reviewsList').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-rv]');
+    if (!b) return;
+    var card = b.closest('[data-id]'), id = Number(card.getAttribute('data-id'));
+    var r = data.reviews.filter(function (x) { return x.id === id; })[0];
+    if (!r) return;
+    if (b.getAttribute('data-rv') === 'delete') {
+      if (!confirm('Удалить отзыв «' + r.name + '» навсегда?')) return;
+      b.disabled = true;
+      SB.remove('reviews', 'id=eq.' + id).then(function (rows) {
+        if (noRights(rows)) return;
+        toast('Отзыв удалён');
+        loadAll();
+      }, function (err) { toast('Не удалось удалить: ' + err.message); }).then(function () { b.disabled = false; });
+      return;
+    }
+    b.disabled = true;
+    SB.update('reviews', 'id=eq.' + id, { approved: !r.approved }).then(function (rows) {
+      if (noRights(rows)) return;
+      toast(r.approved ? 'Отзыв скрыт с сайта' : 'Отзыв снова на сайте');
+      loadAll();
+    }, function (err) { toast('Не получилось: ' + err.message); }).then(function () { b.disabled = false; });
+  });
+
   /* ---------------- вкладки ---------------- */
   $$('.tabs button').forEach(function (b) {
     b.addEventListener('click', function () {
       $$('.tabs button').forEach(function (x) { x.setAttribute('aria-selected', String(x === b)); });
-      $('#tab-report').hidden = b.getAttribute('data-tab') !== 'report';
-      $('#tab-orders').hidden = b.getAttribute('data-tab') !== 'orders';
+      ['report', 'orders', 'reviews'].forEach(function (t) { $('#tab-' + t).hidden = b.getAttribute('data-tab') !== t; });
     });
   });
 

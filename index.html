@@ -45,7 +45,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=5">
 </head>
 <body>
   <a class="skip-link" href="#builder">Перейти к конструктору заказа</a>
@@ -113,6 +113,10 @@
   </header>
 
   <main id="top">
+    <!-- Активный заказ клиента (виден, когда сайт открыт из бота или клиент уже заходил в кабинет) -->
+    <section class="active-order" id="activeOrder" hidden aria-live="polite">
+      <div class="container"><div class="ao-card" id="activeOrderBox"></div></div>
+    </section>
     <!-- ============================ HERO ============================ -->
     <section class="hero">
       <div class="hero__bg" aria-hidden="true"><span class="blob blob--1"></span><span class="blob blob--2"></span><span class="blob blob--3"></span></div>
@@ -294,13 +298,8 @@
                   <div class="range-scale" aria-hidden="true"><span>50%</span><span>70%</span><span>95%</span></div>
                 </div>
                 <input type="hidden" name="orig_touched" id="origTouched" value="">
-                <div class="field__sublabel">Система проверки</div>
-                <div class="chips" role="radiogroup" aria-label="Система проверки">
-                  <label class="chip"><input type="radio" name="orig_system" value="Антиплагиат.ВУЗ"><span>Антиплагиат.ВУЗ</span></label>
-                  <label class="chip"><input type="radio" name="orig_system" value="Антиплагиат.ру"><span>Антиплагиат.ру</span></label>
-                  <label class="chip"><input type="radio" name="orig_system" value="eTXT"><span>eTXT</span></label>
-                  <label class="chip"><input type="radio" name="orig_system" value="другая система"><span>Другая</span></label>
-                  <label class="chip"><input type="radio" name="orig_system" value="none"><span>Не нужно</span></label>
+                <div class="chips">
+                  <label class="chip"><input type="checkbox" name="orig_none" value="yes"><span>Проверка не нужна</span></label>
                 </div>
               </div>
 
@@ -829,8 +828,8 @@
 
   <!-- Telegram Mini App: нужен, чтобы сайт внутри Telegram мог передать заказ боту -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="config.js?v=3"></script>
-  <script src="sounds.js?v=3"></script>
-  <script src="script.js?v=3"></script>
+  <script src="config.js?v=5"></script>
+  <script src="sounds.js?v=5"></script>
+  <script src="script.js?v=5"></script>
 </body>
 </html>

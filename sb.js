@@ -92,6 +92,8 @@
 
     select: function (table, query) { return rest('GET', table + (query ? '?' + query : '')); },
     insert: function (table, row) { return rest('POST', table, { body: row, prefer: 'return=representation' }); },
+    update: function (table, query, row) { return rest('PATCH', table + '?' + query, { body: row, prefer: 'return=representation' }); },
+    remove: function (table, query) { return rest('DELETE', table + '?' + query, { prefer: 'return=representation' }); },
     rpc: function (name, args, opts) { return rest('POST', 'rpc/' + name, { body: args || {}, auth: !(opts && opts.anon) }); },
     insertAnon: function (table, row) { return rest('POST', table, { body: row, prefer: 'return=minimal', auth: false }); },
 

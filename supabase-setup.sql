@@ -33,6 +33,9 @@ create policy "reviews: insert" on public.reviews
 grant usage on schema public to anon, authenticated;
 grant select, insert on public.reviews to anon, authenticated;
 
+-- Админы из panel_admins видят все отзывы (и скрытые), могут скрыть или удалить отзыв
+-- в админ-панели сайта → вкладка «⭐ Отзывы». (panel_admins и is_panel_admin создаются ниже.)
+
 -- ---------- Счётчик посетителей ----------
 create table if not exists public.site_stats (
   id      int primary key default 1 check (id = 1),
@@ -111,6 +114,17 @@ returns boolean language sql stable security definer set search_path = public as
 $$;
 grant execute on function public.is_panel_admin() to anon, authenticated;
 
+drop policy if exists "reviews: admins read all" on public.reviews;
+create policy "reviews: admins read all" on public.reviews
+  for select to authenticated using (public.is_panel_admin());
+drop policy if exists "reviews: admins update" on public.reviews;
+create policy "reviews: admins update" on public.reviews
+  for update to authenticated using (public.is_panel_admin()) with check (public.is_panel_admin());
+drop policy if exists "reviews: admins delete" on public.reviews;
+create policy "reviews: admins delete" on public.reviews
+  for delete to authenticated using (public.is_panel_admin());
+grant update, delete on public.reviews to authenticated;
+
 create table if not exists public.cloud_orders (
   id             bigint primary key,
   code           text not null unique,
@@ -168,6 +182,8 @@ create table if not exists public.cloud_files (
   created_at  timestamptz not null default now()
 );
 alter table public.cloud_files enable row level security;
+-- Файлы, загруженные вместе с «отправить всё сразу», бот отправляет одним сообщением
+alter table public.cloud_files add column if not exists batch text;
 drop policy if exists "cloud_files: admins read" on public.cloud_files;
 create policy "cloud_files: admins read" on public.cloud_files
   for select to authenticated using (public.is_panel_admin());
@@ -181,7 +197,7 @@ create policy "cloud_files: admins add results" on public.cloud_files
 create table if not exists public.cloud_actions (
   id          bigint generated always as identity primary key,
   order_id    bigint not null,
-  action      text not null check (action in ('price', 'status', 'message')),
+  action      text not null,
   payload     jsonb not null default '{}'::jsonb check (octet_length(payload::text) <= 5000),
   created_by  text default (auth.jwt() ->> 'email'),
   created_at  timestamptz not null default now(),
@@ -189,6 +205,10 @@ create table if not exists public.cloud_actions (
   result      text
 );
 alter table public.cloud_actions enable row level security;
+-- bundle — «отправить всё сразу» (цена, срок, статус, сообщение и файлы одной кнопкой)
+alter table public.cloud_actions drop constraint if exists cloud_actions_action_check;
+alter table public.cloud_actions add constraint cloud_actions_action_check
+  check (action in ('price', 'status', 'message', 'bundle'));
 drop policy if exists "cloud_actions: admins read" on public.cloud_actions;
 create policy "cloud_actions: admins read" on public.cloud_actions
   for select to authenticated using (public.is_panel_admin());
@@ -226,6 +246,7 @@ returns json language sql stable security definer set search_path = public as $$
     select json_build_object(
       'name', (select client_name from cloud_orders where client_token = p_token order by id desc limit 1),
       'payment_details', (select value from site_settings where key = 'payment_details'),
+      'payment_extra', (select value from site_settings where key = 'payment_extra'),
       'orders', coalesce((
         select json_agg(json_build_object(
           'code', o.code, 'type_name', o.type_name, 'status', o.status, 'price', o.price,

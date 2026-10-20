@@ -17,8 +17,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="panel.css">
+  <link rel="stylesheet" href="styles.css?v=5">
+  <link rel="stylesheet" href="panel.css?v=5">
 </head>
 <body class="panel">
   <header class="p-header">
@@ -51,6 +51,7 @@
       <div class="tabs" role="tablist">
         <button type="button" role="tab" aria-selected="true" data-tab="report">📊 Отчёт</button>
         <button type="button" role="tab" aria-selected="false" data-tab="orders">📦 Заказы</button>
+        <button type="button" role="tab" aria-selected="false" data-tab="reviews">⭐ Отзывы</button>
       </div>
       <p class="p-muted" id="syncNote" style="margin:-8px 0 16px"></p>
 
@@ -83,6 +84,11 @@
         </div>
         <div class="table-wrap"><table class="orders-t" id="ordersTable"></table></div>
       </div>
+
+      <div id="tab-reviews" hidden>
+        <p class="p-muted" style="margin:0 0 12px">Отзывы с сайта. «Скрыть» убирает отзыв с сайта (его можно вернуть), «Удалить» — навсегда.</p>
+        <div class="rv-list" id="reviewsList"></div>
+      </div>
     </section>
     <p class="p-error" id="fatal" hidden></p>
   </main>
@@ -94,8 +100,8 @@
   <div class="tip" id="tip" hidden></div>
   <div class="toasts" id="toasts" aria-live="polite"></div>
 
-  <script src="config.js?v=3"></script>
-  <script src="sb.js?v=3"></script>
-  <script src="admin.js?v=3"></script>
+  <script src="config.js?v=5"></script>
+  <script src="sb.js?v=5"></script>
+  <script src="admin.js?v=5"></script>
 </body>
 </html>

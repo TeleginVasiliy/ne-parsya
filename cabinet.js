@@ -40,9 +40,34 @@
     $('#toasts').appendChild(el);
     setTimeout(function () { el.remove(); }, 3500);
   }
-  // Реквизиты приходят с тегами <code> (из бота) — остальное экранируем
+  // Реквизиты приходят с тегами <code> и <b> (из бота) — остальное экранируем
   function details(text) {
-    return esc(text).replace(/&lt;code&gt;([\s\S]*?)&lt;\/code&gt;/g, '<code title="Нажмите, чтобы скопировать">$1</code>');
+    return esc(text).replace(/&lt;code&gt;([\s\S]*?)&lt;\/code&gt;/g, '<code title="Нажмите, чтобы скопировать">$1</code>')
+      .replace(/&lt;b&gt;([\s\S]*?)&lt;\/b&gt;/g, '<b>$1</b>').replace(/\n/g, '<br>');
+  }
+  // Быстрая оплата: ссылки банков и кнопки «Скопировать» (номер для СБП, карта, сумма)
+  function quickPay(due) {
+    var x = window.__payExtra || {};
+    var out = (x.links || []).map(function (l) {
+      return '<a class="btn btn--primary btn--sm js-ext" href="' + esc(l.url) + '" target="_blank" rel="noopener">💳 Оплатить: ' + esc(l.name) + '</a>';
+    });
+    if (x.phone) out.push('<button type="button" class="btn btn--ghost btn--sm js-copy" data-copy="' + esc(x.phone) + '">📋 Номер для СБП</button>');
+    if (x.card) out.push('<button type="button" class="btn btn--ghost btn--sm js-copy" data-copy="' + esc(String(x.card).replace(/\s/g, '')) + '">📋 Номер карты</button>');
+    if (x.phone || x.card) out.push('<button type="button" class="btn btn--ghost btn--sm js-copy" data-copy="' + Math.round(due) + '">📋 Сумма</button>');
+    return out.length ? '<div class="pay-box__quick">' + out.join('') + '</div>' : '';
+  }
+  function copy(text) {
+    var done = function () { toast('Скопировано: ' + text); };
+    if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text); done(); });
+    else { fallbackCopy(text); done(); }
+  }
+  function fallbackCopy(text) {
+    var t = document.createElement('textarea');
+    t.value = text;
+    document.body.appendChild(t);
+    t.select();
+    try { document.execCommand('copy'); } catch (e) { /* ничего */ }
+    t.remove();
   }
   function botLink(start) { return BOT ? 'https://t.me/' + BOT + (start ? '?start=' + start : '') : '#'; }
   function openBot(e) {
@@ -90,6 +115,7 @@
       (o.reject_reason ? '<p class="p-muted">Причина отмены: ' + esc(o.reject_reason) + '</p>' : '') +
       (due ? '<div class="pay-box"><b>' + payKind + ': ' + money(due) + '</b>' +
         '<div class="pay-box__details">' + details(window.__payDetails || 'Реквизиты пришлёт исполнитель в чате') + '</div>' +
+        quickPay(due) +
         '<div class="p-muted">В комментарии к переводу укажите номер заказа: <code>' + esc(o.code) + '</code></div>' +
         '<a class="btn btn--primary btn--sm js-bot" href="' + botLink() + '" target="_blank" rel="noopener">📸 Я оплатил — отправить чек в боте</a></div>' : '') +
       (files ? '<div class="files"><b>📎 Готовая работа</b>' + files + '</div>' : '') +
@@ -103,6 +129,7 @@
     SB.rpc('client_cabinet', { p_token: token }, { anon: true }).then(function (data) {
       if (!data) { renderNoAccess('Ссылка на кабинет устарела'); return; }
       window.__payDetails = data.payment_details;
+      try { window.__payExtra = JSON.parse(data.payment_extra || '{}'); } catch (e) { window.__payExtra = {}; }
       if (data.name) $('#hello').textContent = data.name + ', ваши заказы';
       var orders = data.orders || [];
       $('#content').innerHTML = orders.length
@@ -120,9 +147,11 @@
   // Нажатие на номер карты / телефона копирует его (работает и после автообновления)
   $('#content').addEventListener('click', function (e) {
     var c = e.target.closest('.pay-box code');
-    if (c && navigator.clipboard) {
-      navigator.clipboard.writeText(c.textContent).then(function () { toast('Скопировано: ' + c.textContent); }, function () {});
-    }
+    if (c) copy(c.textContent);
+    var b = e.target.closest('.js-copy');
+    if (b) copy(b.getAttribute('data-copy'));
+    var a = e.target.closest('.js-ext');
+    if (a && IN_TG && TGW.openLink) { e.preventDefault(); TGW.openLink(a.href); } // банк откроется в браузере/приложении
   });
   load(false);
   setInterval(function () { if (!document.hidden) load(true); }, 30000);
