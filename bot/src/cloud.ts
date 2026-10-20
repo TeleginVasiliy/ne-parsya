@@ -253,9 +253,9 @@ export async function applyActions(config: Config): Promise<number> {
         const price = parseInt(payload.price) || 0;
         const deadline = String(payload.deadline ?? "").trim().slice(0, 60) || "по договорённости";
         if (!(price > 0 && price < 10_000_000)) throw new Error("неверная цена");
-        if (o.paid || !["new", "awaiting_payment"].includes(o.status)) throw new Error("цену уже нельзя менять — заказ оплачен или в работе");
+        if (o.paid || !["new", "accepted", "awaiting_payment"].includes(o.status)) throw new Error("цену уже нельзя менять — заказ оплачен или в работе");
         await db.setPrice(o.id, price, prepayAmount(price, config.prepaymentPercent), deadline);
-        if (o.status === "awaiting_payment") await db.setStatus(o.id, "new");
+        if (o.status === "awaiting_payment" || o.status === "new") await db.setStatus(o.id, "accepted"); // цена назначена — заказ принят
         o = (await db.getOrder(o.id))!;
         await sendOffer(config, o);
         await refreshOrderCards(config, o.id);
@@ -301,10 +301,10 @@ async function applyBundle(config: Config, order: Order, payload: Record<string,
   const price = parseInt(payload.price) || 0;
   if (payload.price !== undefined && payload.price !== null && payload.price !== "") {
     if (!(price > 0 && price < 10_000_000)) throw new Error("неверная цена");
-    if (o.paid || !["new", "awaiting_payment"].includes(o.status)) throw new Error("цену уже нельзя менять — заказ оплачен или в работе");
+    if (o.paid || !["new", "accepted", "awaiting_payment"].includes(o.status)) throw new Error("цену уже нельзя менять — заказ оплачен или в работе");
     const deadline = String(payload.deadline ?? "").trim().slice(0, 60) || o.deadline_text || "по договорённости";
     await db.setPrice(o.id, price, prepayAmount(price, config.prepaymentPercent), deadline);
-    if (o.status === "awaiting_payment") await db.setStatus(o.id, "new");
+    if (o.status === "awaiting_payment" || o.status === "new") await db.setStatus(o.id, "accepted"); // цена назначена — заказ принят
     o = (await db.getOrder(o.id))!;
     parts.push(offerText(config, o));
     kb = K.offerKb(o.id);

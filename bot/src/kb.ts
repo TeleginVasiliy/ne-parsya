@@ -103,13 +103,13 @@ export function myOrdersKb(orders: Order[], cabinet?: string | null): Inline {
 
 export function orderDetailKb(o: Order): Inline {
   const b: Btn[] = [];
-  if (o.status === "new" && o.price) b.push(btn(T.BTN_AGREE, cb("c", "agree", o.id)));
+  if ((o.status === "new" || o.status === "accepted") && o.price) b.push(btn(T.BTN_AGREE, cb("c", "agree", o.id)));
   if (o.status === "awaiting_payment") b.push(btn(T.BTN_PAY, cb("c", "pay", o.id)));
   if (o.status === "awaiting_final") b.push(btn(T.BTN_PAY_FINAL, cb("c", "pay", o.id)));
   if (o.status === "review") b.push(btn(T.BTN_ACCEPT_WORK, cb("c", "accept", o.id)));
   if (o.status === "review" || o.status === "done") b.push(btn(T.BTN_GET_WORK, cb("c", "files", o.id)));
   if (o.status !== "cancelled") b.push(btn(T.BTN_WRITE_ORDER, cb("c", "write", o.id)));
-  if ((o.status === "new" || o.status === "awaiting_payment") && !o.paid) b.push(btn(T.BTN_CANCEL_ORDER, cb("c", "cancel", o.id)));
+  if (["new", "accepted", "awaiting_payment"].includes(o.status) && !o.paid) b.push(btn(T.BTN_CANCEL_ORDER, cb("c", "cancel", o.id)));
   b.push(btn(T.BTN_TO_LIST, cb("c", "list", 0)));
   return inline(adjust(b, 1));
 }
@@ -130,10 +130,10 @@ export function adminCardKb(o: Order, viewer: number, config: Config): Inline | 
   const b: Btn[] = [];
   if (o.admin_id === null) b.push(btn(T.BTN_TAKE, cb("a", "take", o.id)));
   else if (!(responsible || owner)) return null; // заказ ведёт другой админ — у этого кнопок нет
-  if ((o.status === "new" || o.status === "awaiting_payment") && !o.paid) b.push(btn(T.BTN_PRICE, cb("a", "price", o.id)));
+  if (["new", "accepted", "awaiting_payment"].includes(o.status) && !o.paid) b.push(btn(T.BTN_PRICE, cb("a", "price", o.id)));
   b.push(btn(T.BTN_MSG, cb("a", "msg", o.id)));
   b.push(btn(T.BTN_STATUS, cb("a", "status", o.id)));
-  if (["in_work", "review", "new", "awaiting_payment"].includes(o.status)) b.push(btn(T.BTN_RESULT, cb("a", "result", o.id)));
+  if (["in_work", "review", "new", "accepted", "awaiting_payment"].includes(o.status)) b.push(btn(T.BTN_RESULT, cb("a", "result", o.id)));
   if (config.adminIds.length > 1) b.push(btn(T.BTN_TRANSFER, cb("a", "transfer", o.id)));
   if (o.status !== "done" && o.status !== "cancelled") b.push(btn(T.BTN_REJECT, cb("a", "reject", o.id)));
   b.push(btn(T.BTN_FILES, cb("a", "files", o.id)));

@@ -271,6 +271,11 @@ export async function changeStatus(config: Config, orderId: number, status: stri
   return true;
 }
 
+/** Админ взял заказ (или занялся им) — клиент видит «Принят». Только из «Новый». */
+export async function markAccepted(config: Config, orderId: number, notify = true) {
+  await changeStatus(config, orderId, "accepted", { expected: ["new"], notify });
+}
+
 export const prepayAmount = (price: number, percent: number) => Math.max(1, Math.ceil(price * percent / 100));
 
 /** Сколько клиенту платить сейчас: предоплату или остаток. */

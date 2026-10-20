@@ -12,10 +12,10 @@
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
 
   var STATUS = {
-    new: '🆕 Новый', awaiting_payment: '💳 Ожидает оплаты', in_work: '🛠 В работе', review: '🔎 На проверке',
+    new: '🆕 Новый', accepted: '👍 Принят', awaiting_payment: '💳 Ожидает оплаты', in_work: '🛠 В работе', review: '🔎 На проверке',
     awaiting_final: '💳 Ожидает доплаты', done: '✅ Выполнен', cancelled: '❌ Отменён'
   };
-  var MANUAL = ['new', 'awaiting_payment', 'in_work', 'review', 'done', 'cancelled'];
+  var MANUAL = ['new', 'accepted', 'awaiting_payment', 'in_work', 'review', 'done', 'cancelled'];
   var ACTION_NAME = { price: 'Цена', status: 'Статус', message: 'Сообщение', bundle: 'Отправлено клиенту' };
   var STATE_NAME = { pending: 'отправляется', processing: 'отправляется', done: 'выполнено', error: 'ошибка' };
   var MONTHS = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
@@ -135,14 +135,20 @@
     var days = function (n) { return o.filter(function (x) { return now - new Date(x.created_at) < n * 864e5; }).length; };
     var count = function (list) { return o.filter(function (x) { return list.indexOf(x.status) !== -1; }).length; };
     var fromSite = o.filter(function (x) { return x.source === 'site'; }).length;
+    var pct = function (n) { return o.length ? Math.round(100 * n / o.length) + '% от всех' : ''; };
+    var done = count(['done']), cancelled = count(['cancelled']);
+    // Заказы по этапам — отдельно, чтобы было видно, сколько выполнено, а сколько ещё в процессе
     var tiles = [
-      ['Заказов всего', o.length, 'за 7 дней: ' + days(7) + ' · за 30: ' + days(30)],
-      ['Оплачено', money(paidSum), 'подтверждённые оплаты'],
+      ['📦 Всего заказов', o.length, 'за 7 дней: ' + days(7) + ' · за 30: ' + days(30)],
+      ['✅ Выполнено', done, pct(done)],
+      ['🛠 В работе', count(['in_work', 'review', 'awaiting_final']), 'в работе, на проверке, ждут доплаты'],
+      ['💳 Ждут оплаты', count(['awaiting_payment']), 'согласились с ценой'],
+      ['🆕 Новые и принятые', count(['new', 'accepted']),
+        'без цены: ' + o.filter(function (x) { return ['new', 'accepted'].indexOf(x.status) !== -1 && !x.price; }).length],
+      ['❌ Отменено', cancelled, pct(cancelled)],
+      ['💰 Оплачено', money(paidSum), 'подтверждённые оплаты'],
       ['Средний чек', avg ? money(avg) : '—', 'по оплаченным заказам'],
       ['Конверсия в оплату', o.length ? Math.round(100 * paidOrders.length / o.length) + '%' : '—', paidOrders.length + ' из ' + o.length],
-      ['В работе', count(['in_work', 'review', 'awaiting_final']), 'в работе, на проверке, ждут доплаты'],
-      ['Ждут оплаты', count(['awaiting_payment']), 'согласились с ценой'],
-      ['Новые без цены', o.filter(function (x) { return x.status === 'new' && !x.price; }).length, 'нужно назначить цену'],
       ['С сайта / из бота', fromSite + ' / ' + (o.length - fromSite), 'источник заказа']
     ];
     $('#kpis').innerHTML = tiles.map(function (t) {
@@ -283,7 +289,7 @@
         return '<li><span>' + esc(l[0]) + '</span><span><b>' + esc(l[1]) + ':</b> ' + esc(l[2]) + '</span></li>';
       }).join('') + '</ul></div>' +
       // Раздельные блоки: цена и срок, статус, сообщение, готовая работа — каждое отправляется своей кнопкой
-      (['new', 'awaiting_payment'].indexOf(o.status) !== -1 && !o.paid ?
+      (['new', 'accepted', 'awaiting_payment'].indexOf(o.status) !== -1 && !o.paid ?
         '<div class="section-box"><h4>💰 Цена и срок</h4><form id="fPrice">' +
         '<div class="p-row"><input class="input" type="number" min="1" step="1" name="price" required placeholder="Цена, ₽" value="' + (o.price || '') + '" style="flex:1">' +
         '<input class="input" name="deadline" maxlength="60" required placeholder="Срок: дата или «3 дня»" value="' + esc(o.deadline_text || '') + '" style="flex:1"></div>' +

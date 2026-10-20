@@ -17,7 +17,7 @@ const PAYMENT_KIND = T.PAYMENT_KIND as Record<string, string>;
 export async function cbAgree(ctx: Ctx, orderId: number) {
   const o = await ownOrder(ctx, orderId);
   if (!o) return;
-  if (!o.price || !await changeStatus(ctx.config, o.id, "awaiting_payment", { notify: false, expected: ["new"] })) {
+  if (!o.price || !await changeStatus(ctx.config, o.id, "awaiting_payment", { notify: false, expected: ["new", "accepted"] })) {
     await ctx.answer(T.ORDER_NOT_AVAILABLE, true);
     return;
   }

@@ -5,7 +5,7 @@ import * as db from "./db.ts";
 import type { Order } from "./db.ts";
 import * as K from "./kb.ts";
 import {
-  adminName, adminUrl, applyMenuButton, isDashboardUrl, normalizeSiteUrl, resetUrlCache, changeStatus, deadlineLabel, deliverResult, getWebappUrl, notifyClient, prepayAmount,
+  adminName, adminUrl, markAccepted, applyMenuButton, isDashboardUrl, normalizeSiteUrl, resetUrlCache, changeStatus, deadlineLabel, deliverResult, getWebappUrl, notifyClient, prepayAmount,
   refreshOrderCards, sendAdminCard, sendAdminMessageToClient, sendOffer, sendOrderFiles, sendPaymentInstructions, statusLabel,
 } from "./services.ts";
 import { reviewCardText } from "./client.ts";
@@ -21,7 +21,10 @@ const STATUS = T.STATUS as Record<string, string>;
 /** Действовать может ответственный или владелец. Ничей заказ закрепляется за нажавшим. */
 async function canAct(ctx: Ctx, o: Order): Promise<Order | null> {
   const uid = ctx.uid;
-  if (o.admin_id === null && await db.takeOrder(o.id, uid)) await refreshOrderCards(ctx.config, o.id);
+  if (o.admin_id === null && await db.takeOrder(o.id, uid)) {
+    await refreshOrderCards(ctx.config, o.id);
+    await markAccepted(ctx.config, o.id);
+  }
   const fresh = (await db.getOrder(o.id))!;
   if (fresh.admin_id === uid || ctx.config.isOwner(uid)) return fresh;
   await ctx.answer(fmt(T.NOT_YOURS, { name: await adminName(fresh.admin_id) }), true);
@@ -51,7 +54,10 @@ export async function cbAdmin(ctx: Ctx, action: string, orderId: number) {
       if (!await db.takeOrder(o.id, ctx.uid)) {
         const fresh = (await db.getOrder(o.id))!;
         await ctx.answer(fmt(T.TAKEN_ALREADY, { name: await adminName(fresh.admin_id) }), true);
-      } else await ctx.answer(T.TAKEN_OK);
+      } else {
+        await ctx.answer(T.TAKEN_OK);
+        await markAccepted(cfg, o.id); // клиент сразу видит, что заказ принят
+      }
       await refreshOrderCards(cfg, o.id);
       return;
     }
@@ -78,7 +84,7 @@ export async function cbAdmin(ctx: Ctx, action: string, orderId: number) {
     case "price": {
       const o = await actable(ctx, orderId);
       if (!o) return;
-      if (o.paid || !["new", "awaiting_payment"].includes(o.status)) return void await ctx.answer(T.PRICE_LOCKED, true);
+      if (o.paid || !["new", "accepted", "awaiting_payment"].includes(o.status)) return void await ctx.answer(T.PRICE_LOCKED, true);
       await ctx.answer();
       await ctx.setState("adm_price", { order_id: o.id });
       await ctx.reply(fmt(T.ASK_PRICE, { code: o.code }), K.adminCancelKb(o.id));
@@ -161,9 +167,9 @@ async function finishPrice(ctx: Ctx, deadline: string) {
   const { order_id, price } = ctx.data;
   await ctx.clearState();
   let o = (await db.getOrder(order_id))!;
-  if (o.paid || !["new", "awaiting_payment"].includes(o.status)) return void await ctx.reply(T.PRICE_LOCKED);
+  if (o.paid || !["new", "accepted", "awaiting_payment"].includes(o.status)) return void await ctx.reply(T.PRICE_LOCKED);
   await db.setPrice(o.id, price, prepayAmount(price, ctx.config.prepaymentPercent), deadline);
-  if (o.status === "awaiting_payment") await db.setStatus(o.id, "new"); // пересчитали цену — клиент заново соглашается
+  if (o.status === "awaiting_payment") await db.setStatus(o.id, "accepted"); // пересчитали цену — клиент заново соглашается
   o = (await db.getOrder(o.id))!;
   await sendOffer(ctx.config, o);
   await refreshOrderCards(ctx.config, o.id);

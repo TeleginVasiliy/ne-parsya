@@ -181,7 +181,7 @@ export async function cbCancel(ctx: Ctx, orderId: number) {
   const o = await ownOrder(ctx, orderId);
   if (!o) return;
   await ctx.answer();
-  if (!["new", "awaiting_payment"].includes(o.status) || o.paid) {
+  if (!["new", "accepted", "awaiting_payment"].includes(o.status) || o.paid) {
     await screen.newScreen(ctx.chatId, T.CANNOT_CANCEL, K.backToOrderKb(o.id));
     return;
   }
@@ -191,7 +191,7 @@ export async function cbCancel(ctx: Ctx, orderId: number) {
 export async function cbCancelYes(ctx: Ctx, orderId: number) {
   const o = await ownOrder(ctx, orderId);
   if (!o) return;
-  if (o.paid || !await changeStatus(ctx.config, o.id, "cancelled", { notify: false, expected: ["new", "awaiting_payment"] })) {
+  if (o.paid || !await changeStatus(ctx.config, o.id, "cancelled", { notify: false, expected: ["new", "accepted", "awaiting_payment"] })) {
     await ctx.answer(T.CANNOT_CANCEL, true);
     return;
   }

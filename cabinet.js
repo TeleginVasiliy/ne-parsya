@@ -15,11 +15,11 @@
   var $ = function (s) { return document.querySelector(s); };
 
   var STATUS = {
-    new: '🆕 Новый', awaiting_payment: '💳 Ожидает оплаты', in_work: '🛠 В работе', review: '🔎 На проверке',
+    new: '🆕 Новый', accepted: '👍 Принят', awaiting_payment: '💳 Ожидает оплаты', in_work: '🛠 В работе', review: '🔎 На проверке',
     awaiting_final: '💳 Ожидает доплаты', done: '✅ Выполнен', cancelled: '❌ Отменён'
   };
   // Шаги прогресса: Новый → Оплата → В работе → Проверка → Готово
-  var STEP = { new: 1, awaiting_payment: 2, in_work: 3, awaiting_final: 4, review: 4, done: 5, cancelled: 0 };
+  var STEP = { new: 1, accepted: 1, awaiting_payment: 2, in_work: 3, awaiting_final: 4, review: 4, done: 5, cancelled: 0 };
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {

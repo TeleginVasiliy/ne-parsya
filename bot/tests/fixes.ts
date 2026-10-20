@@ -103,6 +103,24 @@ try {
   tg.blocked.delete(C2);
   ok("если клиент правда заблокировал бота — так и пишем");
 
+  // --- автостатусы: взял заказ → «Принят» (клиент видит), цена из панели → «Принят»; вручную можно любой
+  await d.webapp(c, { kind: "np_order", id: "AC01", type: "essay", lines: [["📝", "Работа", "Эссе про статусы"]] });
+  const ac = (await db.getOrderByCode("AC01"))!;
+  await d.send(owner, "/order AC01");
+  await d.click(owner, "Взять заказ");
+  assert((await db.getOrder(ac.id))!.status === "accepted" && tg.visible(C1).some((t) => t.includes("принял заказ")), JSON.stringify(tg.visible(C1)));
+  await d.webapp(c, { kind: "np_order", id: "AC02", type: "essay", lines: [["📝", "Работа", "Эссе через панель"]] });
+  const ac2 = (await db.getOrderByCode("AC02"))!;
+  await db.exec("insert into cloud_actions(order_id, action, payload) values($1, 'price', '{\"price\":1500,\"deadline\":\"2 дня\"}')", [ac2.id]);
+  await kick();
+  assert((await db.getOrder(ac2.id))!.status === "accepted" && tg.findButton(C1, "Согласен"));
+  await d.click(c, "Согласен");
+  assert((await db.getOrder(ac2.id))!.status === "awaiting_payment");
+  await db.exec("insert into cloud_actions(order_id, action, payload) values($1, 'status', '{\"status\":\"accepted\"}')", [ac2.id]);
+  await kick();
+  assert((await db.getOrder(ac2.id))!.status === "accepted");
+  ok("автостатусы: «Принят», когда админ взял заказ или назначил цену; клиент это видит; ручная смена работает");
+
   // --- сайт: имя бота и вход в кабинет
   const info = await (await handler(new Request("http://x/bot/api/info"))).json();
   assert(info.ok && info.bot === "ne_parsya_bot", JSON.stringify(info));
