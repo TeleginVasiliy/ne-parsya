@@ -91,6 +91,8 @@ try {
   assert(buttons.some((b: any) => b.url === "https://www.tbank.ru/rm/test.user1/abc" && b.text.includes("Т-Банк")));
   assert(buttons.some((b: any) => b.copy_text?.text === "+79991234567") && buttons.some((b: any) => b.copy_text?.text === "2200123456789010"));
   assert(buttons.some((b: any) => b.copy_text?.text === "2500"));
+  // Подсказка по шагам и кнопка «Номер заказа» для комментария к переводу
+  assert(pay.includes("Как оплатить") && pay.includes("банк получателя — <b>Т-Банк</b>") && buttons.some((b: any) => b.copy_text?.text === "K1K1"), pay);
   ok("оплата: номер для СБП и карта с кнопками «Скопировать», сумма, кнопка «Оплатить: Т-Банк»");
 
   await handler(new Request(`http://x/bot?cron=${(await sha256Hex(`cron:${TOKEN}`)).slice(0, 40)}`));

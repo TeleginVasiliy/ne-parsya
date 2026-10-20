@@ -301,7 +301,10 @@ export function paymentDetailsText(config: Config): string {
   if (config.paymentDetails) parts.push(config.paymentDetails);
   const p = config.pay;
   if (p.phone && !config.paymentDetails.includes(p.phone)) {
-    parts.push(fmt(T.PAY_SBP_LINE, { phone: esc(p.phone), bank: p.bank ? `, банк получателя: <b>${esc(p.bank)}</b>` : "" }));
+    parts.push(fmt(T.PAY_SBP_LINE, {
+      phone: esc(p.phone), bank: p.bank ? `, банк получателя: <b>${esc(p.bank)}</b>` : "",
+      bank_step: p.bank ? ` и выберите банк получателя — <b>${esc(p.bank)}</b>` : " и выберите банк получателя",
+    }));
   }
   if (p.card && !config.paymentDetails.replace(/\s/g, "").includes(p.card.replace(/\s/g, ""))) {
     parts.push(fmt(T.PAY_CARD_LINE, { card: esc(p.card) }));
@@ -315,7 +318,7 @@ export function paymentText(config: Config, o: Order, kind: string): string {
 }
 
 export const paymentKb = (config: Config, o: Order, kind: string) =>
-  K.payKb(o.id, kind === "final", config.pay, amountDue(o, kind));
+  K.payKb(o.id, kind === "final", config.pay, amountDue(o, kind), o.code);
 
 export async function sendPaymentInstructions(config: Config, o: Order, kind: string): Promise<boolean> {
   return await notifyClient(config, o, paymentText(config, o, kind), paymentKb(config, o, kind));

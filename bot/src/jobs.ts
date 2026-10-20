@@ -27,14 +27,14 @@ export async function runReminders(config: Config) {
   for (const o of await db.ordersAwaitingSince("awaiting_payment", REMIND_AFTER_H)) {
     if (!o.remind_sent) {
       await db.markReminded(o.id);
-      await notifyClient(config, o, fmt(T.PAY_REMINDER, { code: o.code }), K.payKb(o.id, false, config.pay, o.price ? Math.max(0, (o.prepay || o.price) - o.paid) : 0));
+      await notifyClient(config, o, fmt(T.PAY_REMINDER, { code: o.code }), K.payKb(o.id, false, config.pay, o.price ? Math.max(0, (o.prepay || o.price) - o.paid) : 0, o.code));
     }
   }
   // 2) Работа готова, ждёт доплаты > 24 ч — напоминание (без автоотмены)
   for (const o of await db.ordersAwaitingSince("awaiting_final", REMIND_AFTER_H)) {
     if (!o.remind_sent) {
       await db.markReminded(o.id);
-      await notifyClient(config, o, fmt(T.PAY_REMINDER_FINAL, { code: o.code }), K.payKb(o.id, true, config.pay, Math.max(0, (o.price || 0) - o.paid)));
+      await notifyClient(config, o, fmt(T.PAY_REMINDER_FINAL, { code: o.code }), K.payKb(o.id, true, config.pay, Math.max(0, (o.price || 0) - o.paid), o.code));
     }
   }
   // 3) Через сутки после «Выполнен» — просим оценку

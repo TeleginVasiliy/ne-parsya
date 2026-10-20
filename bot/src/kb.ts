@@ -63,14 +63,18 @@ export function siteInline(webappUrl: string, text: string = T.BTN_OPEN_SITE): I
 export const offerKb = (o: number) => inline([[btn(T.BTN_AGREE, cb("c", "agree", o))], [btn(T.BTN_DISCUSS, cb("c", "discuss", o))]]);
 
 /** Кнопки оплаты: ссылки банков, «Скопировать» номер/карту/сумму, «Я оплатил». */
-export function payKb(o: number, final = false, pay?: PayOptions | null, amount?: number): Inline {
+export function payKb(o: number, final = false, pay?: PayOptions | null, amount?: number, code?: string): Inline {
   const rows: Btn[][] = [];
+  // Всё, что нужно вставить в приложение банка, — кнопками «Скопировать» по шагам подсказки
+  const first: Btn[] = [];
+  if (pay?.phone) first.push({ text: "📋 Номер для СБП", copy_text: { text: pay.phone } });
+  if (amount && (pay?.phone || pay?.card)) first.push({ text: `📋 Сумма: ${amount}`, copy_text: { text: String(amount) } });
+  if (first.length) rows.push(first);
+  const second: Btn[] = [];
+  if (pay?.card) second.push({ text: "📋 Номер карты", copy_text: { text: pay.card.replace(/\s/g, "") } });
+  if (code && (pay?.phone || pay?.card)) second.push({ text: `📋 Номер заказа`, copy_text: { text: code } });
+  if (second.length) rows.push(second);
   for (const l of pay?.links ?? []) rows.push([{ text: `💳 Оплатить: ${l.name}`, url: l.url }]);
-  const copy: Btn[] = [];
-  if (pay?.phone) copy.push({ text: "📋 Номер для СБП", copy_text: { text: pay.phone } });
-  if (pay?.card) copy.push({ text: "📋 Номер карты", copy_text: { text: pay.card.replace(/\s/g, "") } });
-  if (copy.length) rows.push(copy);
-  if (amount && (pay?.phone || pay?.card)) rows.push([{ text: `📋 Сумма: ${amount}`, copy_text: { text: String(amount) } }]);
   rows.push([btn(T.BTN_PAID, cb("c", "receipt", o))]);
   if (!final) rows.push([btn(T.BTN_CANCEL_ORDER, cb("c", "cancel", o))]);
   return inline(rows);

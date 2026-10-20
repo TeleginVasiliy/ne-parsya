@@ -46,7 +46,7 @@
       .replace(/&lt;b&gt;([\s\S]*?)&lt;\/b&gt;/g, '<b>$1</b>').replace(/\n/g, '<br>');
   }
   // Быстрая оплата: ссылки банков и кнопки «Скопировать» (номер для СБП, карта, сумма)
-  function quickPay(due) {
+  function quickPay(due, code) {
     var x = window.__payExtra || {};
     var out = (x.links || []).map(function (l) {
       return '<a class="btn btn--primary btn--sm js-ext" href="' + esc(l.url) + '" target="_blank" rel="noopener">💳 Оплатить: ' + esc(l.name) + '</a>';
@@ -54,6 +54,7 @@
     if (x.phone) out.push('<button type="button" class="btn btn--ghost btn--sm js-copy" data-copy="' + esc(x.phone) + '">📋 Номер для СБП</button>');
     if (x.card) out.push('<button type="button" class="btn btn--ghost btn--sm js-copy" data-copy="' + esc(String(x.card).replace(/\s/g, '')) + '">📋 Номер карты</button>');
     if (x.phone || x.card) out.push('<button type="button" class="btn btn--ghost btn--sm js-copy" data-copy="' + Math.round(due) + '">📋 Сумма</button>');
+    if ((x.phone || x.card) && code) out.push('<button type="button" class="btn btn--ghost btn--sm js-copy" data-copy="' + esc(code) + '">📋 Номер заказа</button>');
     return out.length ? '<div class="pay-box__quick">' + out.join('') + '</div>' : '';
   }
   function copy(text) {
@@ -147,7 +148,7 @@
       (o.reject_reason ? '<p class="p-muted">Причина отмены: ' + esc(o.reject_reason) + '</p>' : '') +
       (due ? '<div class="pay-box"><b>' + payKind + ': ' + money(due) + '</b>' +
         '<div class="pay-box__details">' + details(window.__payDetails || 'Реквизиты пришлёт исполнитель в чате') + '</div>' +
-        quickPay(due) +
+        quickPay(due, o.code) +
         '<div class="p-muted">В комментарии к переводу укажите номер заказа: <code>' + esc(o.code) + '</code></div>' +
         '<a class="btn btn--primary btn--sm js-bot" href="' + botLink() + '" target="_blank" rel="noopener">📸 Я оплатил — отправить чек в боте</a></div>' : '') +
       (files ? '<div class="files"><b>📎 Готовая работа</b>' + files + '</div>' : '') +
