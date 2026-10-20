@@ -282,20 +282,28 @@
       '<div class="section-box"><h4>Заявка</h4><ul class="o-lines">' + (o.lines || []).map(function (l) {
         return '<li><span>' + esc(l[0]) + '</span><span><b>' + esc(l[1]) + ':</b> ' + esc(l[2]) + '</span></li>';
       }).join('') + '</ul></div>' +
-      // одна форма — всё уходит клиенту одним сообщением
-      '<div class="section-box"><h4>📨 Отправить клиенту</h4><form id="fAll" class="send-all">' +
+      // Раздельные блоки: цена и срок, статус, сообщение, готовая работа — каждое отправляется своей кнопкой
       (['new', 'awaiting_payment'].indexOf(o.status) !== -1 && !o.paid ?
-        '<div class="p-row"><input class="input" type="number" min="1" step="1" name="price" placeholder="Цена, ₽" value="' + (o.price || '') + '" style="flex:1">' +
-        '<input class="input" name="deadline" maxlength="60" placeholder="Срок: дата или «3 дня»" value="' + esc(o.deadline_text || '') + '" style="flex:1"></div>' :
-        '<input class="input" name="deadline" maxlength="60" placeholder="Новый срок (если меняется)" value="">') +
-      '<select class="input" name="status"><option value="">Статус — не менять (сейчас: ' + esc(STATUS[o.status] || o.status) + ')</option>' +
+        '<div class="section-box"><h4>💰 Цена и срок</h4><form id="fPrice">' +
+        '<div class="p-row"><input class="input" type="number" min="1" step="1" name="price" required placeholder="Цена, ₽" value="' + (o.price || '') + '" style="flex:1">' +
+        '<input class="input" name="deadline" maxlength="60" required placeholder="Срок: дата или «3 дня»" value="' + esc(o.deadline_text || '') + '" style="flex:1"></div>' +
+        '<button class="btn btn--primary">Отправить цену клиенту</button>' +
+        '<p class="p-muted">Клиент получит предложение с кнопкой «Согласен».</p></form></div>' :
+        '<div class="section-box"><h4>⏰ Срок</h4><form id="fDeadline">' +
+        '<input class="input" name="deadline" maxlength="60" required placeholder="Новый срок: дата или «3 дня»" value="' + esc(o.deadline_text || '') + '">' +
+        '<button class="btn btn--ghost">Изменить срок</button></form></div>') +
+      '<div class="section-box"><h4>🔄 Статус</h4><form id="fStatusForm" class="p-row">' +
+      '<select class="input" name="status" required style="flex:1"><option value="">Сейчас: ' + esc(STATUS[o.status] || o.status) + ' — выберите новый</option>' +
       MANUAL.filter(function (s) { return s !== o.status; }).map(function (s) { return '<option value="' + s + '">' + STATUS[s] + '</option>'; }).join('') +
-      '</select>' +
-      '<textarea class="input textarea" name="text" maxlength="3500" rows="3" placeholder="Сообщение клиенту (необязательно)"></textarea>' +
-      '<label class="p-muted">📎 Готовая работа (необязательно, до 20 МБ на файл)<input class="input" type="file" name="files" multiple></label>' +
-      '<button class="btn btn--primary">📨 Отправить всё клиенту</button>' +
-      '<p class="p-muted">Заполните только то, что нужно, — клиент получит всё одним сообщением в Telegram и увидит в кабинете.' +
-      (o.price && o.paid < o.price ? ' Готовая работа уйдёт после доплаты ' + money(o.price - o.paid) + '.' : '') + '</p></form>' +
+      '</select><button class="btn btn--primary">Сменить статус</button></form></div>' +
+      '<div class="section-box"><h4>💬 Сообщение клиенту</h4><form id="fMsg">' +
+      '<textarea class="input textarea" name="text" maxlength="3500" rows="3" required placeholder="Текст сообщения"></textarea>' +
+      '<button class="btn btn--primary">Отправить сообщение</button></form></div>' +
+      '<div class="section-box"><h4>📎 Готовая работа</h4><form id="fWork">' +
+      '<input class="input" type="file" name="files" multiple required>' +
+      '<button class="btn btn--primary">Отправить работу клиенту</button>' +
+      '<p class="p-muted">До 20 МБ на файл. Клиент получит файлы в Telegram и увидит их в кабинете.' +
+      (o.price && o.paid < o.price ? ' Работа уйдёт после доплаты ' + money(o.price - o.paid) + ' — бот сам попросит клиента доплатить.' : '') + '</p></form>' +
       fileList(files.filter(function (f) { return f.kind === 'result'; })) + '</div>' +
       '<div class="section-box"><h4>💳 Оплаты</h4>' + (pays.length ? pays.map(function (p) {
         return '<div class="p-row"><b>' + money(p.amount) + '</b><span class="p-muted">' + (p.kind === 'final' ? 'доплата' : 'оплата') + ' · ' +
@@ -326,46 +334,100 @@
     }).join('') + '</div>';
   }
 
+  // Понятный текст ошибки: что случилось и что сделать
+  function explain(err) {
+    var m = String((err && err.message) || err || '');
+    if (/invalid key/i.test(m)) return 'хранилище не приняло имя файла. Переименуйте файл латиницей (например, rabota.docx) и попробуйте снова';
+    if (err && err.status === 401 || /jwt|jws|token|signature/i.test(m)) return 'вход устарел — нажмите «Выйти», войдите снова и повторите';
+    if (/row-level security|violates|permission|403/i.test(m)) return 'нет прав. Проверьте, что ваш e-mail есть в таблице panel_admins, и выполните supabase-setup.sql заново';
+    if (/payload too large|413|exceeded the maximum/i.test(m)) return 'файл слишком большой для хранилища';
+    if (/failed to fetch|network/i.test(m)) return 'нет связи с базой — проверьте интернет';
+    return m || 'неизвестная ошибка';
+  }
+
+  // Бот выполняет действие за пару секунд — несколько раз обновляем карточку, чтобы увидеть результат
+  function refreshSoon() {
+    loadAll(true);
+    [2500, 6000, 15000].forEach(function (ms) { setTimeout(function () { loadAll(!!current); }, ms); });
+  }
+
+  function sendAction(form, action, payload, done) {
+    var btn = form.querySelector('button');
+    var label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Отправляю…';
+    return SB.insert('cloud_actions', { order_id: current.id, action: action, payload: payload }).then(function () {
+      toast(done);
+      refreshSoon();
+      return true;
+    }).catch(function (err) { toast('Не получилось: ' + explain(err)); return false; })
+      .then(function (sent) { btn.disabled = false; btn.textContent = label; return sent; });
+  }
+
   function bindDrawer(o) {
     $('#closeDrawer').addEventListener('click', function () { $('#drawer').close(); current = null; });
-    var fa = $('#fAll');
-    fa.addEventListener('submit', function (e) {
+    var fp = $('#fPrice');
+    if (fp) fp.addEventListener('submit', function (e) {
       e.preventDefault();
-      var payload = {};
-      var price = fa.price ? fa.price.value.trim() : '';
-      if (price && Number(price) !== o.price) payload.price = Number(price);
-      var deadline = fa.deadline.value.trim();
-      if (deadline && (payload.price || deadline !== (o.deadline_text || ''))) payload.deadline = deadline;
-      if (payload.price && !deadline) { toast('Укажите срок вместе с ценой'); return; }
-      if (fa.status.value) payload.status = fa.status.value;
-      var text = fa.text.value.trim();
-      if (text) payload.text = text;
-      var files = Array.prototype.slice.call(fa.files.files);
+      var price = Number(fp.price.value);
+      if (!(price > 0)) { toast('Укажите цену'); return; }
+      sendAction(fp, 'price', { price: price, deadline: fp.deadline.value.trim() }, 'Цена отправлена клиенту');
+    });
+    var fd = $('#fDeadline');
+    if (fd) fd.addEventListener('submit', function (e) {
+      e.preventDefault();
+      sendAction(fd, 'bundle', { deadline: fd.deadline.value.trim() }, 'Новый срок отправлен клиенту');
+    });
+    var fs = $('#fStatusForm');
+    fs.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var st = fs.status.value;
+      if (!st) { toast('Выберите статус'); return; }
+      sendAction(fs, 'status', { status: st }, 'Статус меняется: ' + STATUS[st]).then(function (sent) {
+        if (!sent) return;
+        // Сразу показываем новый статус, бот подтвердит через пару секунд
+        data.orders.forEach(function (x) { if (x.id === o.id) x.status = st; });
+        renderOrders();
+        if (current && current.id === o.id) openOrder(o.id, true);
+      });
+    });
+    var fm = $('#fMsg');
+    fm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var text = fm.text.value.trim();
+      if (!text) return;
+      sendAction(fm, 'message', { text: text }, 'Сообщение отправлено клиенту').then(function (sent) { if (sent) fm.reset(); });
+    });
+    var fw = $('#fWork');
+    fw.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var files = Array.prototype.slice.call(fw.files.files);
+      if (!files.length) { toast('Выберите файлы'); return; }
       var big = files.filter(function (f) { return f.size > 20 * 1024 * 1024; });
       if (big.length) { toast('Файлы больше 20 МБ Telegram не пропустит: ' + big.map(function (f) { return f.name; }).join(', ')); return; }
-      if (!files.length && !Object.keys(payload).length) { toast('Заполните хотя бы одно поле'); return; }
-      var btn = fa.querySelector('button');
+      var btn = fw.querySelector('button');
       btn.disabled = true;
-      btn.textContent = files.length ? 'Загружаю файлы…' : 'Отправляю…';
-      var batch = files.length ? uuid() : null;
-      if (batch) payload.batch = batch;
+      btn.textContent = 'Загружаю файлы…';
       files.reduce(function (p, f) {
         return p.then(function () {
+          // Адрес в хранилище — только латиница; клиент увидит настоящее имя файла
           var path = randomHex(16) + '/' + safeName(f.name);
-          return SB.upload('results', path, f).then(function () {
+          return SB.upload('results', path, f).catch(function (err) {
+            err.message = '«' + f.name + '»: ' + explain(err);
+            throw err;
+          }).then(function () {
             return SB.insert('cloud_files', { id: uuid(), order_id: o.id, kind: 'result', name: f.name, bucket: 'results',
-                                              path: path, size: f.size, source: 'site', delivered: false, batch: batch });
+                                              path: path, size: f.size, source: 'site', delivered: false });
           });
         });
       }, Promise.resolve()).then(function () {
-        return SB.insert('cloud_actions', { order_id: o.id, action: 'bundle', payload: payload });
-      }).then(function () {
-        toast('Отправлено! Клиент получит всё одним сообщением.');
-        fa.reset();
-        setTimeout(function () { loadAll(true); }, 2500); // бот выполняет за пару секунд — покажем результат
-        return loadAll(true);
-      }).catch(function (err) { toast('Не получилось: ' + err.message); })
-        .then(function () { btn.disabled = false; btn.textContent = '📨 Отправить всё клиенту'; });
+        toast('Работа загружена — бот отправит её клиенту.');
+        fw.reset();
+        refreshSoon();
+      }).catch(function (err) {
+        if (err && err.status === 401) { SB.signOut(); showLogin('Вход устарел — войдите снова и повторите загрузку.'); return; }
+        toast('Не получилось: ' + (/«/.test(err.message) ? err.message : explain(err)));
+      }).then(function () { btn.disabled = false; btn.textContent = 'Отправить работу клиенту'; });
     });
     $$('.js-sign', $('#drawerBox')).forEach(function (b) {
       b.addEventListener('click', function () {

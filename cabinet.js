@@ -80,14 +80,46 @@
     else token = localStorage.getItem(TOKEN_KEY) || '';
   } catch (e) { /* без запоминания */ }
   if (params.get('t')) history.replaceState(null, '', location.pathname + (BOT ? '?bot=' + BOT : '')); // ключ не светим в адресе
+  function setToken(t) {
+    token = t;
+    try { if (t) localStorage.setItem(TOKEN_KEY, t); else localStorage.removeItem(TOKEN_KEY); } catch (e) { /* без запоминания */ }
+  }
 
+  // Кабинет без ключа: вход через Telegram — бот пришлёт личную ссылку (кнопка /start cabinet)
   function renderNoAccess(text) {
     $('#content').innerHTML = '<div class="p-empty"><b>' + esc(text) + '</b>' +
-      'Откройте кабинет из бота: «📦 Мои заказы» → «🌐 Кабинет на сайте».' +
-      (BOT ? '<p style="margin-top:14px"><a class="btn btn--primary" id="toBot" href="' + botLink() + '" target="_blank" rel="noopener">Перейти в бота</a></p>' : '') +
+      'Нажмите «Войти через Telegram» — бот пришлёт личную ссылку на ваш кабинет. ' +
+      'Или откройте его в боте: «📦 Мои заказы» → «🌐 Кабинет на сайте».' +
+      (BOT ? '<p style="margin-top:14px"><a class="btn btn--primary" id="toBot" href="' + botLink('cabinet') + '" target="_blank" rel="noopener">✈️ Войти через Telegram</a></p>' : '') +
       '</div>';
     var b = $('#toBot');
-    if (b) b.addEventListener('click', openBot);
+    if (b) b.addEventListener('click', function (e) {
+      if (IN_TG && TGW.openTelegramLink) { e.preventDefault(); TGW.openTelegramLink(botLink('cabinet')); setTimeout(function () { TGW.close(); }, 400); }
+    });
+  }
+
+  var fnBase = function () { return SB.url + '/functions/v1/' + String((window.SITE_CONFIG || {}).botFunction || 'bot').replace(/[^\w-]/g, ''); };
+
+  // Внутри Telegram ключ не нужен: бот узнаёт клиента по подписи Telegram и отдаёт ссылку на его кабинет
+  function tokenFromTelegram() {
+    if (!(IN_TG && TGW.initData && SB.enabled)) return Promise.resolve('');
+    return fetch(fnBase() + '/api/my', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: TGW.initData })
+    }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+      var t = d && d.cabinet && (String(d.cabinet).match(/[?&]t=([^&#]+)/) || [])[1];
+      return t ? decodeURIComponent(t) : '';
+    }).catch(function () { return ''; });
+  }
+
+  // Имя бота не вписано в config.js — спрашиваем у самого бота
+  function detectBot() {
+    if (BOT || !SB.enabled) return Promise.resolve();
+    return fetch(fnBase() + '/api/info').then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+      if (d && /^[A-Za-z0-9_]{5,32}$/.test(String(d.bot || ''))) {
+        BOT = d.bot;
+        $('#homeLink').href = 'index.html?bot=' + BOT;
+      }
+    }).catch(function () { /* без имени бота — без кнопки входа */ });
   }
 
   function orderCard(o) {
@@ -123,11 +155,23 @@
       '</article>';
   }
 
-  function load(silent) {
+  function load(silent, retried) {
     if (!SB.enabled) { renderNoAccess('Кабинет пока не подключён'); return; }
-    if (!token) { renderNoAccess('Не нашли ваш кабинет'); return; }
+    if (!token) {
+      // Нет ключа: в Telegram берём его у бота, в браузере — предлагаем войти через Telegram
+      tokenFromTelegram().then(function (t) {
+        if (t) { setToken(t); load(silent); return; }
+        detectBot().then(function () { renderNoAccess(IN_TG ? 'Пока нет заказов' : 'Войдите, чтобы увидеть свои заказы'); });
+      });
+      return;
+    }
     SB.rpc('client_cabinet', { p_token: token }, { anon: true }).then(function (data) {
-      if (!data) { renderNoAccess('Ссылка на кабинет устарела'); return; }
+      if (!data) {
+        // Ключ устарел — в Telegram пробуем получить свежий
+        if (!retried && IN_TG) { setToken(''); tokenFromTelegram().then(function (t) { if (t) { setToken(t); load(silent, true); } else detectBot().then(function () { renderNoAccess('Ссылка на кабинет устарела'); }); }); return; }
+        detectBot().then(function () { renderNoAccess('Ссылка на кабинет устарела'); });
+        return;
+      }
       window.__payDetails = data.payment_details;
       try { window.__payExtra = JSON.parse(data.payment_extra || '{}'); } catch (e) { window.__payExtra = {}; }
       if (data.name) $('#hello').textContent = data.name + ', ваши заказы';

@@ -45,7 +45,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=5">
+  <link rel="stylesheet" href="styles.css?v=6">
 </head>
 <body>
   <a class="skip-link" href="#builder">Перейти к конструктору заказа</a>
@@ -532,6 +532,19 @@
                 <label class="field__label" for="clientName">Как к вам обращаться? <span class="opt">необязательно</span></label>
                 <input class="input" type="text" id="clientName" name="client_name" maxlength="60" placeholder="Имя">
               </div>
+
+              <!-- Для титульного листа: по желанию клиента -->
+              <div class="grid-2">
+                <div class="field">
+                  <label class="field__label" for="titleStudent">Ваше ФИО для титульника <span class="opt">необязательно</span></label>
+                  <input class="input" type="text" id="titleStudent" name="title_student" maxlength="120" placeholder="Иванов Иван Иванович" autocomplete="name">
+                </div>
+                <div class="field">
+                  <label class="field__label" for="titleTeacher">ФИО преподавателя <span class="opt">необязательно</span></label>
+                  <input class="input" type="text" id="titleTeacher" name="title_teacher" maxlength="120" placeholder="Петров П. П., доцент">
+                </div>
+              </div>
+              <p class="field__hint">Впишем на титульный лист. Можно оставить пустым и прислать позже в чат.</p>
             </fieldset>
 
             <!-- Навигация по шагам -->
@@ -828,8 +841,8 @@
 
   <!-- Telegram Mini App: нужен, чтобы сайт внутри Telegram мог передать заказ боту -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="config.js?v=5"></script>
-  <script src="sounds.js?v=5"></script>
-  <script src="script.js?v=5"></script>
+  <script src="config.js?v=6"></script>
+  <script src="sounds.js?v=6"></script>
+  <script src="script.js?v=6"></script>
 </body>
 </html>

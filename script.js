@@ -438,19 +438,42 @@
 
   function initStaticLinks() {
     $$('[data-tg-link]').forEach(function (a) {
-      a.href = BOT ? botLink('site') : tgLink(DEFAULT_MSG);
       a.target = '_blank';
       a.rel = 'noopener';
-      // Внутри Telegram мы уже в боте — кнопка просто возвращает в чат
-      if (IN_TG) a.addEventListener('click', function (e) { e.preventDefault(); TGW.close(); });
+      // Внутри Telegram открываем чат с ботом (просто закрыть сайт — значит иногда вернуться в список чатов)
+      if (IN_TG) a.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (BOT && TGW.openTelegramLink) { TGW.openTelegramLink(botLink('site')); setTimeout(function () { TGW.close(); }, 400); }
+        else TGW.close();
+      });
     });
+    applyBotLinks();
+    detectBot();
+    $('#year').textContent = new Date().getFullYear();
+  }
+
+  // Ссылки, которые зависят от имени бота (оно может прийти позже — см. detectBot)
+  function applyBotLinks() {
+    $$('[data-tg-link]').forEach(function (a) { a.href = BOT ? botLink('site') : tgLink(DEFAULT_MSG); });
     $$('[data-tg-handle]').forEach(function (el) { el.textContent = '@' + (BOT || TG_USER); });
     // Ссылка в кабинет передаёт имя бота дальше (кабинет откроется и без него — по сохранённому ключу)
     $$('[data-cabinet]').forEach(function (a) {
       if (!LIVE) { a.hidden = true; return; }
       if (BOT) a.href = 'cabinet.html?bot=' + BOT;
     });
-    $('#year').textContent = new Date().getFullYear();
+    if (form) updateFab(readForm());
+  }
+
+  // Имя бота не вписано в config.js — спрашиваем у самого бота (Supabase → функция bot → /api/info)
+  function detectBot() {
+    if (BOT || !LIVE || !window.fetch) return;
+    var fn = (CFG.botFunction || 'bot').replace(/[^\w-]/g, '');
+    fetch(SB.url + '/functions/v1/' + fn + '/api/info').then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+      var name = d && String(d.bot || '');
+      if (!/^[A-Za-z0-9_]{5,32}$/.test(name)) return;
+      BOT = name;
+      applyBotLinks();
+    }).catch(function () { /* без бота — ссылки ведут в личку telegramUsername */ });
   }
 
   /* ======================= АКТИВНЫЙ ЗАКАЗ КЛИЕНТА ======================= */
@@ -991,6 +1014,8 @@
     add('➕', 'Доп. услуги', (d.extras || []).join(', '), 2);
     add('💬', 'Комментарий', val(d, 'comment'), 2, 'comment');
     add('👤', 'Имя', val(d, 'client_name'), 2);
+    add('🧑‍🎓', 'ФИО студента (титульник)', val(d, 'title_student'), 2);
+    add('👨‍🏫', 'ФИО преподавателя (титульник)', val(d, 'title_teacher'), 2);
     return L;
   }
 
@@ -1146,6 +1171,7 @@
       // Переход по ссылке выполнит браузер, здесь — только копирование
       var copied = copyText(preview.full);
       play('success');
+      orderSent();
       closeModal($('#previewModal'));
       toast(copied
         ? 'Заявка скопирована — если текст не подставился, просто вставь его в чат'
@@ -1175,14 +1201,25 @@
     return json;
   }
 
+  // Заявка ушла: следующий заказ получит новый номер (иначе бот принял бы его за повтор этой же заявки)
+  function orderSent() {
+    orderId = '';
+    saveDraft();
+  }
+
   function saveHandoff(code, payload) {
     return api('bot_handoff', { method: 'POST', prefer: 'return=minimal', body: { code: code, payload: payload }, keepalive: true });
   }
 
-  function sendToBot(e, noApi, noCloud) {
-    var payload = sitePayload();
-    var copied = copyText(preview.full); // запасной вариант — текст в буфере
-    play('success');
+  function sendToBot(e, noApi, noCloud, sent) {
+    // sent — заявка, которую уже пытались отправить (повтор другим способом — с тем же номером)
+    var payload = sent || sitePayload();
+    var sentId = payload.id;
+    if (!sent) {
+      copyText(preview.full); // запасной вариант — текст в буфере
+      play('success');
+      orderSent();
+    }
 
     // 0) Сайт выложил сам бот: заказ уходит ему напрямую, с подписью Telegram (initData)
     if (IN_TG && window.NP_BOT_API && TGW.initData && !noApi) {
@@ -1199,7 +1236,7 @@
         toast('Заказ отправлен! Подтверждение уже в чате с ботом', '✅', 4000);
         setTimeout(function () { TGW.close(); }, 1200);
       }).catch(function () {
-        sendToBot(e, true); // не вышло — пробуем через облако или ссылку
+        sendToBot(e, true, false, payload); // не вышло — пробуем через облако или ссылку
       });
       return;
     }
@@ -1214,7 +1251,7 @@
           toast('Заказ сохранён! Подтверждение придёт в чат с ботом', '✅', 4000);
           setTimeout(function () { TGW.close(); }, 1500);
         }, function () {
-          sendToBot(e, true, true); // облако недоступно — обычный путь через ссылку
+          sendToBot(e, true, true, payload); // облако недоступно — обычный путь через ссылку
         });
       return;
     }
@@ -1234,10 +1271,10 @@
       if (preview.handoff) {
         saveHandoff(preview.handoff, payload).then(
           function () { go('order_' + preview.handoff); },
-          function () { go('order_' + orderId); } // база недоступна — бот попросит вставить текст
+          function () { go('order_' + sentId); } // база недоступна — бот попросит вставить текст
         );
       } else {
-        go('order_' + orderId);
+        go('order_' + sentId);
       }
       return;
     }
@@ -1246,7 +1283,7 @@
     closeModal($('#previewModal'));
     toast(preview.handoff
       ? 'Открываю бота — нажмите «Запустить», и заказ сразу примут. Текст заявки на всякий случай скопирован'
-      : 'Заявка скопирована — в боте нажмите «Запустить» и вставьте её одним сообщением', copied ? '✅' : 'ℹ️', 8000);
+      : 'Заявка скопирована — в боте нажмите «Запустить» и вставьте её одним сообщением', '✅', 8000);
   }
 
   // Плавающая кнопка: пустой конструктор — приветствие, иначе текущая сводка

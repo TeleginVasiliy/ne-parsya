@@ -13,7 +13,7 @@ window.SITE_CONFIG = {
   /* Username Telegram-бота без @ (например 'ne_parsya_bot').
      Если указан — заказы с сайта уходят в бота: он примет заказ, назовёт
      цену и проведёт оплату. Пусто — заявка уходит в личку telegramUsername. */
-  botUsername: '',
+  botUsername: 'ne_parsyaa_bot',
 
   /* Текст, который подставится, если клиент пишет «просто так»,
      не заполнив конструктор */
@@ -30,7 +30,7 @@ window.SITE_CONFIG = {
      счётчики». Ключ «publishable»/«anon» публичный, его можно хранить тут.
      НИКОГДА не вставляйте сюда «secret» / «service_role» ключ!          */
   supabase: {
-    url: 'https://jqpbezutlpvolkybdsdd.supabase.co/functions/v1/bot?setup=1',  // например 'https://abcdefghijk.supabase.co'
+    url: 'https://jqpbezutlpvolkybdsdd.supabase.co',  // например 'https://abcdefghijk.supabase.co'
     key: 'sb_publishable_yZu-n5cwmw2BErL3M4fLbw_aQJiGRvl'   // например 'sb_publishable_...' или длинный ключ 'eyJ...'
   },
 
