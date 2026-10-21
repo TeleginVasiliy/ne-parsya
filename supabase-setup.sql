@@ -28,6 +28,9 @@ create policy "reviews: read approved" on public.reviews
 -- выкладывает бот, когда админ нажмёт «Опубликовать», с подписью, какая работа была сделана.
 -- Посетители сайта отзывы только читают.
 alter table public.reviews add column if not exists order_code text unique;
+-- Отзыв из бота может быть только оценкой, без текста — такие тоже показываем на сайте
+alter table public.reviews drop constraint if exists reviews_message_check;
+alter table public.reviews add constraint reviews_message_check check (char_length(message) <= 1000);
 drop policy if exists "reviews: insert" on public.reviews;
 revoke insert on public.reviews from anon, authenticated;
 
@@ -209,7 +212,7 @@ alter table public.cloud_actions enable row level security;
 -- bundle — «отправить всё сразу» (цена, срок, статус, сообщение и файлы одной кнопкой)
 alter table public.cloud_actions drop constraint if exists cloud_actions_action_check;
 alter table public.cloud_actions add constraint cloud_actions_action_check
-  check (action in ('price', 'status', 'message', 'bundle', 'delete'));
+  check (action in ('price', 'status', 'message', 'bundle', 'delete', 'review_delete'));
 drop policy if exists "cloud_actions: admins read" on public.cloud_actions;
 create policy "cloud_actions: admins read" on public.cloud_actions
   for select to authenticated using (public.is_panel_admin());

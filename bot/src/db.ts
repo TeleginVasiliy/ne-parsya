@@ -446,16 +446,21 @@ export async function reviewsForSite(): Promise<Row[]> {
      left join bot_users u on u.id = r.user_id where r.published and not r.on_site order by r.id limit 50`);
 }
 
-/** Отзыв на сайт (таблица reviews). Без текста (меньше 10 символов) сайт отзыв не примет — только отмечаем. */
+/** Отзыв на сайт (таблица reviews) — и с текстом, и просто оценка. */
 export async function putSiteReview(r: Row, work: string) {
-  const text = String(r.text ?? "").trim();
-  if ([...text].length >= 10) {
-    await exec(
-      `insert into reviews(name, work, message, rating, approved, order_code) values ($1, nullif($2, ''), $3, $4, true, $5)
-       on conflict (order_code) do nothing`,
-      [String(r.first_name ?? "").trim().slice(0, 60) || "Клиент", work.slice(0, 60), text.slice(0, 1000), r.rating, r.code]);
-  }
+  await exec(
+    `insert into reviews(name, work, message, rating, approved, order_code) values ($1, nullif($2, ''), $3, $4, true, $5)
+     on conflict (order_code) do nothing`,
+    [String(r.first_name ?? "").trim().slice(0, 60) || "Клиент", work.slice(0, 60), String(r.text ?? "").trim().slice(0, 1000),
+     r.rating, r.code]);
   await exec("update bot_reviews set on_site = true where id = $1", [r.id]);
+}
+
+/** Удаляет отзыв по заказу везде: в боте и на сайте. Возвращает id удалённого отзыва бота. */
+export async function deleteReview(orderId: number, code: string): Promise<number | null> {
+  const r = await one<{ id: number }>("delete from bot_reviews where order_id = $1 returning id", [orderId]);
+  await exec("delete from reviews where order_code = $1", [code]);
+  return r?.id ?? null;
 }
 
 export async function publishedReviews(): Promise<Row[]> {

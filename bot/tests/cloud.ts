@@ -211,6 +211,21 @@ try {
   assert(tg.sentTo(OWNER).some((t) => t.includes("заказ удалён")));
   ok("сайт: отзывы пишет только бот; заказы вручную — только админам; «Удалить» убирает заказ отовсюду");
 
+  // --- 9. Отзыв без текста тоже на сайте; «Удалить» в панели убирает отзыв и с сайта, и из бота
+  const rvOrder = (await db.q("select * from bot_orders order by id limit 1"))[0];
+  await db.exec("insert into bot_reviews(order_id, user_id, rating, published) values($1, $2, 4, true)", [rvOrder.id, rvOrder.user_id]);
+  await (await import("../src/cloud.ts")).pushChanged();
+  const onSite = await asRole("anon", null, "select * from reviews where order_code = $1", [rvOrder.code]);
+  assert(onSite.length === 1 && onSite[0].message === "" && onSite[0].rating === 4 && onSite[0].work, JSON.stringify(onSite));
+  await asRole("authenticated", "admin@mail.ru", "insert into cloud_actions(order_id, action) values($1, 'review_delete')", [rvOrder.id]);
+  await kick();
+  assert((await db.q("select state from cloud_actions where action = 'review_delete'"))[0].state === "done");
+  assert((await db.q("select 1 from bot_reviews where order_id = $1", [rvOrder.id])).length === 0);
+  assert((await db.q("select 1 from reviews where order_code = $1", [rvOrder.code])).length === 0);
+  await (await import("../src/cloud.ts")).pushChanged();
+  assert((await db.q("select 1 from reviews where order_code = $1", [rvOrder.code])).length === 0, "удалённый не возвращается");
+  ok("отзыв-оценка без текста виден на сайте; «Удалить» в панели убирает отзыв и с сайта, и из бота");
+
   await tg.stop();
   console.log(`\n✅ Связь с сайтом: все проверки пройдены (${PASSED.length})`);
   await db.close();

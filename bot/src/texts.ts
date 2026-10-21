@@ -241,6 +241,8 @@ export const T = {
   BTN_PUBLISH: "📢 Опубликовать в боте",
   REVIEW_PUBLISHED_MARK: "\n\n📢 <b>Опубликовал {name}</b>",
   REVIEW_PUBLISHED: "Отзыв опубликован.",
+  REVIEW_DELETED_MARK: "🗑 Отзыв удалён в админ-панели ({who}) — его больше нет ни в боте, ни на сайте.",
+  REVIEW_SITE_FAILED: "⚠️ Отзыв опубликован в боте, но на сайт не попал: {error}\n\nСкорее всего, не выполнен свежий supabase-setup.sql (Supabase → SQL Editor). После этого отзыв появится на сайте сам.",
   ORDERS_TITLE: "📋 <b>Заказы</b> · {scope} · {status}\nНайдено: {n}",
   ORDERS_EMPTY: "Заказов с таким фильтром нет.",
   SCOPE_MINE: "мои",
