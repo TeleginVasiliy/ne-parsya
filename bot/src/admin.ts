@@ -9,7 +9,8 @@ import {
   refreshOrderCards, sendAdminCard, sendAdminMessageToClient, sendOffer, sendOrderFiles, sendPaymentInstructions, statusLabel,
 } from "./services.ts";
 import { reviewCardText } from "./client.ts";
-import { clientText, workSummary } from "./services.ts";
+import { clientText } from "./services.ts";
+import { pushReviews } from "./cloud.ts";
 import * as tg from "./tg.ts";
 import { esc, fmt, isValidHttpsUrl, money } from "./util.ts";
 
@@ -263,7 +264,7 @@ export async function cbPublish(ctx: Ctx, reviewId: number) {
   await ctx.answer(T.REVIEW_PUBLISHED);
   const r = (await db.getReview(reviewId))!;
   const o = (await db.getOrder(r.order_id))!;
-  await db.publishSiteReview(r, o, workSummary(o)); // и на сайт
+  await pushReviews(); // и на сайт
   const text = reviewCardText(o, await clientText(r.user_id), r.rating, r.text) +
     fmt(T.REVIEW_PUBLISHED_MARK, { name: await adminName(ctx.uid) });
   await Promise.all((await db.getCards("review", reviewId)).map((c) => tg.editText(c.chat_id, c.message_id, text)));
@@ -421,7 +422,7 @@ async function saveUrl(ctx: Ctx, raw: string): Promise<boolean> {
   resetUrlCache();
   await applyMenuButton(url); // кнопка меню обновляется у всех сразу
   await ctx.reply(fmt(T.SITE_UPDATED, { url: esc(url) }), K.siteInline(url, T.BTN_SITE_TEST));
-  await ctx.reply(T.MENU_HINT, K.mainMenu(url)); // и у себя — reply-клавиатура
+  await ctx.reply(T.MENU_HINT, K.mainMenu(url, K.adminPanelUrl(url))); // и у себя — reply-клавиатура
   return true;
 }
 

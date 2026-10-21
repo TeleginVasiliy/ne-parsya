@@ -262,6 +262,12 @@ async function scenarioMain() {
   assert(!tg.findButton(ME, "Опубликовать") && contains(tg.sentTo(ME), "Опубликовал Пётр"));
   await d.send(c1, "⭐ Отзывы");
   assert(tg.lastText(C1).includes("Всё супер, спасибо!") && !tg.lastText(C1).includes("замените"));
+  // Опубликованный ещё до обновления отзыв (на сайт не попал) выгружается при следующей синхронизации — один раз
+  await db.exec("delete from reviews where order_code = $1", [o.code]);
+  await db.exec("update bot_reviews set on_site = false");
+  await (await import("../src/cloud.ts")).pushReviews();
+  await (await import("../src/cloud.ts")).pushReviews();
+  assert((await db.q("select 1 from reviews where order_code = $1", [o.code])).length === 1);
   const siteReview = (await db.q("select * from reviews where order_code = $1", [o.code]))[0];
   assert(siteReview && siteReview.message === "Всё супер, спасибо!" && siteReview.rating === 5 && siteReview.work, JSON.stringify(siteReview));
   ok("отзыв: приглашение сразу при «Выполнен» (один раз) → 5⭐ + текст → админам → «Опубликовать» → в боте и на сайте с описанием работы");

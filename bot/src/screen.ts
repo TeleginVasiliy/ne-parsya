@@ -27,8 +27,8 @@ export interface ScreenState {
   hist: Snap[];
 }
 
-// Клавиатура главного меню (её даёт index.ts — ей нужна ссылка на сайт из настроек)
-let menuFactory: (() => Promise<{ text: string; markup: Markup }>) | null = null;
+// Клавиатура главного меню (её даёт index.ts — ей нужна ссылка на сайт из настроек; у админов в ней есть админ-панель)
+let menuFactory: ((chatId: number) => Promise<{ text: string; markup: Markup }>) | null = null;
 export function setMenuFactory(fn: typeof menuFactory) {
   menuFactory = fn;
 }
@@ -85,7 +85,7 @@ export async function ensureMenu(chatId: number, s?: ScreenState, renew = false)
   if (!menuFactory) return;
   const state = s ?? await db.getScreen(chatId);
   if (state.menu && !renew) return;
-  const { text, markup } = await menuFactory();
+  const { text, markup } = await menuFactory(chatId);
   const msg = await tg.sendText(chatId, text, markup);
   if (!msg) return;
   const fresh = await db.getScreen(chatId);

@@ -48,6 +48,12 @@ try {
   assert(tg.menus(C1) === 1, "клавиатура вернулась");
   ok("клавиатура главного меню всегда в чате: не удаляется при переходах, возвращается в старых чатах");
 
+  // --- кнопка «Админ-панель» — только у админов
+  const kbOf = (chat: number) => JSON.stringify([...tg.msgs.values()].filter((m) => m.chat === chat && m.bot && !m.deleted && m.markup?.keyboard).pop()?.markup);
+  assert(kbOf(OWNER).includes("https://neparsya.github.io/ne-parsya/admin.html") && kbOf(OWNER).includes("Админ-панель"), kbOf(OWNER));
+  assert(!kbOf(C1).includes("Админ-панель") && !kbOf(C1).includes("admin.html"), kbOf(C1));
+  ok("кнопка «🛠 Админ-панель» в клавиатуре только у админов");
+
   // --- «Назад»
   await d.send(c, "❓ Вопросы и ответы");
   await d.send(c, "🖼 Примеры работ");

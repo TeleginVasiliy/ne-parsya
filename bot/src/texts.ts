@@ -25,6 +25,7 @@ export const T = {
   STATUS_MANUAL: ["new", "accepted", "awaiting_payment", "in_work", "review", "done", "cancelled"],
   ACTIVE_STATUSES: ["new", "accepted", "awaiting_payment", "in_work", "review", "awaiting_final"],
   BTN_SITE: "🌐 Сайт (предпочтительно)",
+  BTN_ADMIN_PANEL: "🛠 Админ-панель",
   BTN_ORDER: "📝 Оформить заказ",
   BTN_MY: "📦 Мои заказы",
   BTN_EXAMPLES: "🖼 Примеры работ",
