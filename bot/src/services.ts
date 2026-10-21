@@ -266,8 +266,30 @@ export async function warnClientUnreachable(config: Config, o: Order) {
 export async function changeStatus(config: Config, orderId: number, status: string, opts: { notify?: boolean; expected?: string[] } = {}): Promise<boolean> {
   if (!await db.setStatus(orderId, status, opts.expected)) return false;
   const o = (await db.getOrder(orderId))!;
-  if ((opts.notify ?? true) && STATUS_CLIENT[status]) await notifyClient(config, o, fmt(STATUS_CLIENT[status], { code: o.code }));
+  if ((opts.notify ?? true) && STATUS_CLIENT[status]) {
+    const text = fmt(STATUS_CLIENT[status], { code: o.code });
+    // Заказ выполнен — в том же сообщении просим оценить работу
+    if (status === "done" && !o.review_requested) await askReview(config, o, text);
+    else await notifyClient(config, o, text);
+  }
   await refreshOrderCards(config, orderId);
+  return true;
+}
+
+/** Коротко, что было сделано: «Курсовая работа · Экономика · 30 стр.» — подпись к отзыву. */
+export function workSummary(o: Pick<Order, "data">): string {
+  const lines: string[][] = Array.isArray(o.data?.lines) ? o.data.lines : [];
+  const line = (label: string) => lines.find((l) => Array.isArray(l) && l[1] === label)?.[2];
+  const s = [(WORK_TYPES[o.data?.type] ?? WORK_TYPES.other).name, o.data?.subject || line("Предмет"), line("Объём")]
+    .map((x) => String(x ?? "").replace(/\s+/g, " ").trim()).filter(Boolean).join(" · ");
+  return [...s].length > 60 ? [...s].slice(0, 59).join("") + "…" : s;
+}
+
+/** Приглашение оценить выполненный заказ (intro — текст перед ним, например «Заказ выполнен»). */
+export async function askReview(config: Config, o: Order, intro?: string): Promise<boolean> {
+  const ask = fmt(T.REVIEW_ASK, { code: o.code, work: esc(workSummary(o)) });
+  if (!await notifyClient(config, o, intro ? `${intro}\n\n${ask}` : ask, K.ratingKb(o.id))) return false;
+  await db.markReviewRequested(o.id);
   return true;
 }
 

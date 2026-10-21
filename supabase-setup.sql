@@ -24,14 +24,15 @@ create policy "reviews: read approved" on public.reviews
   for select to anon, authenticated
   using (approved);
 
--- Посетители могут только добавлять отзывы (не менять и не удалять чужие)
+-- Отзывы оставляют только клиенты с выполненным заказом — через бота. На сайт отзыв
+-- выкладывает бот, когда админ нажмёт «Опубликовать», с подписью, какая работа была сделана.
+-- Посетители сайта отзывы только читают.
+alter table public.reviews add column if not exists order_code text unique;
 drop policy if exists "reviews: insert" on public.reviews;
-create policy "reviews: insert" on public.reviews
-  for insert to anon, authenticated
-  with check (approved = true);
+revoke insert on public.reviews from anon, authenticated;
 
 grant usage on schema public to anon, authenticated;
-grant select, insert on public.reviews to anon, authenticated;
+grant select on public.reviews to anon, authenticated;
 
 -- Админы из panel_admins видят все отзывы (и скрытые), могут скрыть или удалить отзыв
 -- в админ-панели сайта → вкладка «⭐ Отзывы». (panel_admins и is_panel_admin создаются ниже.)
@@ -208,13 +209,28 @@ alter table public.cloud_actions enable row level security;
 -- bundle — «отправить всё сразу» (цена, срок, статус, сообщение и файлы одной кнопкой)
 alter table public.cloud_actions drop constraint if exists cloud_actions_action_check;
 alter table public.cloud_actions add constraint cloud_actions_action_check
-  check (action in ('price', 'status', 'message', 'bundle'));
+  check (action in ('price', 'status', 'message', 'bundle', 'delete'));
 drop policy if exists "cloud_actions: admins read" on public.cloud_actions;
 create policy "cloud_actions: admins read" on public.cloud_actions
   for select to authenticated using (public.is_panel_admin());
 drop policy if exists "cloud_actions: admins add" on public.cloud_actions;
 create policy "cloud_actions: admins add" on public.cloud_actions
   for insert to authenticated with check (public.is_panel_admin() and state = 'pending');
+
+-- Заказы, добавленные вручную в админ-панели (клиент и сумма) — входят в статистику
+create table if not exists public.manual_orders (
+  id           bigint generated always as identity primary key,
+  client_name  text not null check (char_length(btrim(client_name)) between 1 and 80),
+  amount       integer not null check (amount > 0 and amount < 10000000),
+  created_by   text default (auth.jwt() ->> 'email'),
+  created_at   timestamptz not null default now()
+);
+alter table public.manual_orders enable row level security;
+drop policy if exists "manual_orders: admins" on public.manual_orders;
+create policy "manual_orders: admins" on public.manual_orders
+  for all to authenticated using (public.is_panel_admin()) with check (public.is_panel_admin());
+grant select, insert, delete on public.manual_orders to authenticated;
+grant all on public.manual_orders to service_role;
 
 -- Заказы, отправленные с сайта, пока бот выключен: бот проверит подпись Telegram и примет их
 create table if not exists public.incoming_orders (
@@ -523,15 +539,3 @@ drop trigger if exists np_kick_files on public.cloud_files;
 create trigger np_kick_files after insert on public.cloud_files
   for each row when (new.source = 'site') execute function public.np_bot_kick();
 
-
--- =========================================================================
--- Модерация (НЕОБЯЗАТЕЛЬНО). Если хотите сначала проверять отзывы:
---   1) уберите «--» в начале четырёх строк ниже и выполните их;
---   2) в config.js поставьте reviewsModeration: true.
--- Новые отзывы будут скрыты, пока вы не поставите галочку approved = true
--- в Table Editor → reviews.
--- =========================================================================
--- alter table public.reviews alter column approved set default false;
--- drop policy if exists "reviews: insert" on public.reviews;
--- create policy "reviews: insert" on public.reviews
---   for insert to anon, authenticated with check (approved = false);

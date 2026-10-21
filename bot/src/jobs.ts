@@ -5,7 +5,7 @@ import type { Config } from "./config.ts";
 import { log } from "./config.ts";
 import * as db from "./db.ts";
 import * as K from "./kb.ts";
-import { changeStatus, notifyClient, notifyOrderAdmins } from "./services.ts";
+import { askReview, changeStatus, notifyClient, notifyOrderAdmins } from "./services.ts";
 import { runBroadcasts } from "./admin.ts";
 import { pushSettings, syncOnce } from "./cloud.ts";
 import { fmt } from "./util.ts";
@@ -37,9 +37,9 @@ export async function runReminders(config: Config) {
       await notifyClient(config, o, fmt(T.PAY_REMINDER_FINAL, { code: o.code }), K.payKb(o.id, true, config.pay, Math.max(0, (o.price || 0) - o.paid), o.code));
     }
   }
-  // 3) Через сутки после «Выполнен» — просим оценку
+  // 3) Оценку просим сразу при «Выполнен»; если тогда сообщение не дошло — повторяем через сутки
   for (const o of await db.ordersDoneBefore(REVIEW_AFTER_H)) {
-    if (await db.markReviewRequested(o.id)) await notifyClient(config, o, fmt(T.REVIEW_ASK, { code: o.code }), K.ratingKb(o.id));
+    if (await db.markReviewRequested(o.id)) await askReview(config, o);
   }
   await db.exec("delete from bot_handoff where created_at < now() - interval '1 day'"); // брошенные заявки с сайта
   await db.cleanup();

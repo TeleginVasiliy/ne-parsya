@@ -656,12 +656,8 @@
           <div class="carousel__track" id="reviewsTrack" tabindex="0" aria-label="Отзывы клиентов"></div>
           <div class="carousel__dots" id="reviewsDots"></div>
         </div>
-        <div class="reviews__cta reveal" id="reviewsCta" hidden>
-          <button type="button" class="btn btn--ghost" id="openReview" data-sound="pop">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg>
-            Оставить отзыв
-          </button>
-          <p class="reviews__note">Отзывы оставляют сами клиенты — без правок с моей стороны.</p>
+        <div class="reviews__cta reveal">
+          <p class="reviews__note">Отзывы оставляют только клиенты с выполненным заказом: после сдачи работы бот сам предложит оценить её. Под каждым отзывом указано, какая работа была сделана.</p>
         </div>
       </div>
     </section>
@@ -783,60 +779,12 @@
     </div>
   </dialog>
 
-  <!-- Окно «Оставить отзыв» -->
-  <dialog class="modal" id="reviewModal" aria-labelledby="reviewTitle">
-    <div class="modal__box">
-      <button type="button" class="icon-btn modal__close" data-close aria-label="Закрыть"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
-      <h3 class="modal__title" id="reviewTitle">Оставить отзыв</h3>
-      <p class="modal__lead" id="reviewLead">Отзыв появится на сайте сразу после отправки.</p>
-      <form class="review-form" id="reviewForm" novalidate autocomplete="off">
-        <div class="field">
-          <div class="field__label">Оценка <span class="req" aria-hidden="true">*</span></div>
-          <div class="stars-input" role="radiogroup" aria-label="Оценка от 1 до 5">
-            <label class="star"><input type="radio" name="rating" value="5" aria-label="5 из 5"><span aria-hidden="true">★</span></label>
-            <label class="star"><input type="radio" name="rating" value="4" aria-label="4 из 5"><span aria-hidden="true">★</span></label>
-            <label class="star"><input type="radio" name="rating" value="3" aria-label="3 из 5"><span aria-hidden="true">★</span></label>
-            <label class="star"><input type="radio" name="rating" value="2" aria-label="2 из 5"><span aria-hidden="true">★</span></label>
-            <label class="star"><input type="radio" name="rating" value="1" aria-label="1 из 5"><span aria-hidden="true">★</span></label>
-            <span class="stars-caption" id="ratingCaption">Выберите оценку</span>
-          </div>
-        </div>
-        <div class="grid-2">
-          <div class="field">
-            <label class="field__label" for="rvName">Имя <span class="req" aria-hidden="true">*</span></label>
-            <input class="input" type="text" id="rvName" name="name" maxlength="60" placeholder="Как подписать отзыв" required>
-          </div>
-          <div class="field">
-            <label class="field__label" for="rvUni">ВУЗ, курс <span class="opt">необязательно</span></label>
-            <input class="input" type="text" id="rvUni" name="university" maxlength="80" placeholder="Например, 3 курс">
-          </div>
-        </div>
-        <div class="field">
-          <div class="field__label">Какую работу заказывали <span class="opt">необязательно</span></div>
-          <div class="chips" id="rvWork" role="radiogroup" aria-label="Тип работы"></div>
-        </div>
-        <div class="field">
-          <label class="field__label" for="rvText">Отзыв <span class="req" aria-hidden="true">*</span></label>
-          <textarea class="input textarea" id="rvText" name="message" rows="4" maxlength="1000" placeholder="Что понравилось, уложились ли в срок, как прошла сдача…" required></textarea>
-          <p class="field__hint"><span id="rvCount">0</span> / 1000 · минимум 10 символов</p>
-        </div>
-        <!-- Ловушка для спам-ботов: людям не видна -->
-        <div class="hp" aria-hidden="true"><label>Не заполняйте это поле <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
-        <p class="field__error" id="reviewError" role="alert" hidden></p>
-        <div class="modal__btns">
-          <button type="button" class="btn btn--ghost" data-close>Отмена</button>
-          <button type="submit" class="btn btn--primary" id="reviewSubmit" data-sound="none">Опубликовать отзыв</button>
-        </div>
-      </form>
-    </div>
-  </dialog>
-
   <div class="toasts" id="toasts" aria-live="polite" aria-atomic="true"></div>
 
   <!-- Telegram Mini App: нужен, чтобы сайт внутри Telegram мог передать заказ боту -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="config.js?v=8"></script>
+  <script src="config.js?v=9"></script>
   <script src="sounds.js?v=7"></script>
-  <script src="script.js?v=8"></script>
+  <script src="script.js?v=9"></script>
 </body>
 </html>

@@ -9,7 +9,7 @@ import {
   refreshOrderCards, sendAdminCard, sendAdminMessageToClient, sendOffer, sendOrderFiles, sendPaymentInstructions, statusLabel,
 } from "./services.ts";
 import { reviewCardText } from "./client.ts";
-import { clientText } from "./services.ts";
+import { clientText, workSummary } from "./services.ts";
 import * as tg from "./tg.ts";
 import { esc, fmt, isValidHttpsUrl, money } from "./util.ts";
 
@@ -263,7 +263,8 @@ export async function cbPublish(ctx: Ctx, reviewId: number) {
   await ctx.answer(T.REVIEW_PUBLISHED);
   const r = (await db.getReview(reviewId))!;
   const o = (await db.getOrder(r.order_id))!;
-  const text = reviewCardText(o.code, await clientText(r.user_id), r.rating, r.text) +
+  await db.publishSiteReview(r, o, workSummary(o)); // и на сайт
+  const text = reviewCardText(o, await clientText(r.user_id), r.rating, r.text) +
     fmt(T.REVIEW_PUBLISHED_MARK, { name: await adminName(ctx.uid) });
   await Promise.all((await db.getCards("review", reviewId)).map((c) => tg.editText(c.chat_id, c.message_id, text)));
 }

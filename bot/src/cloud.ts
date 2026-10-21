@@ -269,6 +269,13 @@ export async function applyActions(config: Config): Promise<number> {
         }));
       } else if (row.action === "bundle") {
         await applyBundle(config, o, payload, who);
+      } else if (row.action === "delete") {
+        // Сначала сообщаем админам заказа, потом удаляем — карточки заказа уберутся из их чатов
+        await notifyOrderAdmins(config, o, fmt(T.CLOUD_ACTION_DONE, { who, code: o.code, what: "заказ удалён" }));
+        const cards = await db.deleteOrder(o.id);
+        await Promise.all(cards.map((c) => tg.deleteMessage(c.chat_id, c.message_id)));
+        await db.exec("update cloud_actions set state = 'done', result = 'заказ удалён' where id = $1", [row.id]);
+        continue;
       } else if (row.action === "message") {
         const text = String(payload.text ?? "").trim().slice(0, 3500);
         if (!text) throw new Error("пустое сообщение");
