@@ -1207,6 +1207,17 @@
     saveDraft();
   }
 
+  // Заказ принят — переходим в чат с ботом (там уже подтверждение). Сам по себе Mini App при закрытии
+  // возвращает туда, откуда его открыли (список чатов, профиль бота), а не обязательно в бота.
+  function openBotChat() {
+    setTimeout(function () {
+      if (BOT) {
+        try { TGW.openTelegramLink(botLink('')); } catch (e) { /* закроем ниже */ }
+      }
+      setTimeout(function () { TGW.close(); }, 400);
+    }, 600);
+  }
+
   function saveHandoff(code, payload) {
     return api('bot_handoff', { method: 'POST', prefer: 'return=minimal', body: { code: code, payload: payload }, keepalive: true });
   }
@@ -1233,8 +1244,8 @@
         return r.json();
       }).then(function () {
         closeModal($('#previewModal'));
-        toast('Заказ отправлен! Подтверждение уже в чате с ботом', '✅', 4000);
-        setTimeout(function () { TGW.close(); }, 1200);
+        toast('Заказ отправлен! Открываю чат с ботом', '✅', 4000);
+        openBotChat();
       }).catch(function () {
         sendToBot(e, true, false, payload); // не вышло — пробуем через облако или ссылку
       });
@@ -1248,8 +1259,8 @@
       api('incoming_orders', { method: 'POST', prefer: 'return=minimal', body: { init_data: TGW.initData, payload: payload } })
         .then(function () {
           closeModal($('#previewModal'));
-          toast('Заказ сохранён! Подтверждение придёт в чат с ботом', '✅', 4000);
-          setTimeout(function () { TGW.close(); }, 1500);
+          toast('Заказ отправлен! Открываю чат с ботом', '✅', 4000);
+          openBotChat();
         }, function () {
           sendToBot(e, true, true, payload); // облако недоступно — обычный путь через ссылку
         });
