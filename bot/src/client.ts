@@ -6,8 +6,8 @@ import type { Order } from "./db.ts";
 import * as K from "./kb.ts";
 import * as screen from "./screen.ts";
 import {
-  cabinetLink, changeStatus, clientOrderText, clientText, getWebappUrl, notifyOrderAdmins, relayToAdmins, sendStoredFile,
-  setupCommands, undeliveredReason,
+  askReview, cabinetLink, changeStatus, clientOrderText, clientText, getWebappUrl, notifyOrderAdmins, relayToAdmins,
+  sendStoredFile, setupCommands, undeliveredReason, workSummary,
 } from "./services.ts";
 import { createSiteOrder, fetchHandoff, HANDOFF_CODE_RE } from "./siteOrders.ts";
 import { startForm } from "./order.ts";
@@ -173,7 +173,7 @@ export async function cbAccept(ctx: Ctx, orderId: number) {
     return;
   }
   await ctx.answer("🎉");
-  await screen.newScreen(ctx.chatId, fmt(T.WORK_ACCEPTED, { code: o.code }));
+  await askReview(ctx.config, (await db.getOrder(o.id))!, fmt(T.WORK_ACCEPTED, { code: o.code }));
   await notifyOrderAdmins(ctx.config, o, fmt(T.CLIENT_ACCEPTED_WORK, { code: o.code }));
 }
 
@@ -226,9 +226,7 @@ async function pageItems(kind: string): Promise<Item[]> {
   if (kind === "faq") return list("faq").filter((x: Item) => x.q);
   // Отзывы: опубликованные из бота; шаблоны — только пока настоящих нет
   const real = (await db.publishedReviews()).map((r) => ({
-    name: r.first_name || "Клиент", rating: r.rating, text: r.text || "",
-    // deno-lint-ignore no-explicit-any
-    work: (T.WORK_TYPES as any)[r.order_data?.type]?.name ?? "",
+    name: r.first_name || "Клиент", rating: r.rating, text: r.text || "", work: workSummary({ data: r.order_data ?? {} }),
   }));
   return real.length ? real : list("reviews");
 }
@@ -292,6 +290,7 @@ export async function cbPage(ctx: Ctx, kind: string, index: number) {
 export async function cbRate(ctx: Ctx, orderId: number, rating: number) {
   const o = await ownOrder(ctx, orderId);
   if (!o) return;
+  if (o.status !== "done") return void await ctx.answer(T.REVIEW_NOT_YET, true); // отзыв — только о выполненной работе
   const reviewId = await db.createReview(o.id, ctx.uid, rating);
   if (reviewId === null) {
     await ctx.answer(T.REVIEW_ALREADY, true);
@@ -302,15 +301,17 @@ export async function cbRate(ctx: Ctx, orderId: number, rating: number) {
   await screen.newScreen(ctx.chatId, `Ваша оценка: ${"⭐".repeat(rating)}\n\n${T.REVIEW_TEXT_ASK}`, K.skipReviewKb(o.id));
 }
 
-export function reviewCardText(code: string, client: string, rating: number, text: string | null) {
-  return fmt(T.ADMIN_REVIEW, { code, client, stars: "⭐".repeat(rating), text: text ? esc(text) : "<i>без текста</i>" });
+export function reviewCardText(o: Order, client: string, rating: number, text: string | null) {
+  return fmt(T.ADMIN_REVIEW, {
+    code: o.code, client, work: esc(workSummary(o)), stars: "⭐".repeat(rating), text: text ? esc(text) : "<i>без текста</i>",
+  });
 }
 
 async function finishReview(ctx: Ctx, reviewId: number, text: string | null) {
   await db.setReviewText(reviewId, text);
   const review = (await db.getReview(reviewId))!;
   const o = (await db.getOrder(review.order_id))!;
-  const card = reviewCardText(o.code, await clientText(review.user_id), review.rating, text);
+  const card = reviewCardText(o, await clientText(review.user_id), review.rating, text);
   for (const adminId of ctx.config.adminIds) {
     const msg = await tg.sendText(adminId, card, K.publishKb(reviewId));
     if (msg) {

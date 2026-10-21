@@ -248,22 +248,23 @@ async function scenarioMain() {
 
   // --- отзыв
   const config = (await import("../src/config.ts")).loadConfig();
-  await runReminders(config);
-  assert(!tg.findButton(C1, "5 ⭐"));
+  // Приглашение оценить приходит сразу вместе с «Выполнен», с кратким описанием работы; повторно не приходит
+  assert(tg.findButton(C1, "5 ⭐") && tg.lastText(C1).includes("Оцените") && tg.lastText(C1).includes("📝 "), tg.lastText(C1));
   await db.exec("update bot_orders set done_at = now() - interval '25 hours' where id = $1", [o.id]);
-  await runReminders(config);
   await runReminders(config);
   assert(tg.sentTo(C1).filter((t) => t.includes("Оцените")).length === 1);
   await d.click(c1, "5 ⭐");
   await d.send(c1, "Всё супер, спасибо!");
-  assert(contains(tg.sentTo(ME), "Отзыв по заказу") && contains(tg.sentTo(OWNER), "Всё супер"));
+  assert(contains(tg.sentTo(ME), "Отзыв по заказу") && contains(tg.sentTo(OWNER), "Всё супер") && contains(tg.sentTo(OWNER), "Работа: "));
   await d.send(c1, "⭐ Отзывы");
   assert(tg.lastText(C1).includes("Текст отзыва — замените реальным") && tg.lastText(C1).includes("замените своими"));
   await d.click(owner, "Опубликовать");
   assert(!tg.findButton(ME, "Опубликовать") && contains(tg.sentTo(ME), "Опубликовал Пётр"));
   await d.send(c1, "⭐ Отзывы");
   assert(tg.lastText(C1).includes("Всё супер, спасибо!") && !tg.lastText(C1).includes("замените"));
-  ok("отзыв: запрос через 24 ч (один раз) → 5⭐ + текст → админам → «Опубликовать» → виден в «⭐ Отзывы»");
+  const siteReview = (await db.q("select * from reviews where order_code = $1", [o.code]))[0];
+  assert(siteReview && siteReview.message === "Всё супер, спасибо!" && siteReview.rating === 5 && siteReview.work, JSON.stringify(siteReview));
+  ok("отзыв: приглашение сразу при «Выполнен» (один раз) → 5⭐ + текст → админам → «Опубликовать» → в боте и на сайте с описанием работы");
 
   // --- заказ с сайта через sendData
   const payload = {

@@ -182,6 +182,35 @@ try {
   assert(url === `https://ne-parsya.netlify.app/cabinet.html?t=${encodeURIComponent(co.client_token)}&bot=ne_parsya_bot`, url);
   ok("реквизиты на сайте; в «Мои заказы» — кнопка личного кабинета с ключом клиента");
 
+  // --- 8. Отзывы только через бота, заказы вручную, удаление заказа из панели
+  const refused = async (role: string, email: string | null, sql: string, params: unknown[] = []) => {
+    try {
+      await asRole(role, email, sql, params);
+      return false;
+    } catch {
+      return true;
+    }
+  };
+  assert(await refused("anon", null, "insert into reviews(name, message, rating) values('Спам', 'Лучший сервис!!!', 5)"), "аноним не пишет отзывы");
+  await asRole("authenticated", "admin@mail.ru", "insert into manual_orders(client_name, amount) values('Олег', 3000)");
+  assert(await refused("authenticated", "stranger@mail.ru", "insert into manual_orders(client_name, amount) values('x', 1)"));
+  assert((await asRole("authenticated", "stranger@mail.ru", "select * from manual_orders")).length === 0);
+  const mo = await asRole("authenticated", "admin@mail.ru", "select * from manual_orders");
+  assert(mo.length === 1 && mo[0].amount === 3000 && mo[0].created_by === "admin@mail.ru", JSON.stringify(mo));
+  assert(await refused("authenticated", "admin@mail.ru", "insert into manual_orders(client_name, amount) values('Олег', 0)"), "сумма > 0");
+  await asRole("authenticated", "admin@mail.ru", "delete from manual_orders where id = $1", [mo[0].id]);
+  assert((await db.q("select * from manual_orders")).length === 0);
+
+  const del = (await db.getOrderByCode("API1"))!;
+  await asRole("authenticated", "admin@mail.ru", "insert into cloud_actions(order_id, action) values($1, 'delete')", [del.id]);
+  await kick();
+  const delAct = (await db.q("select state, result from cloud_actions where action = 'delete'"))[0];
+  assert(delAct.state === "done", JSON.stringify(delAct));
+  assert(!await db.getOrder(del.id) && (await db.q("select 1 from cloud_orders where id = $1", [del.id])).length === 0);
+  assert((await db.q("select 1 from bot_payments where order_id = $1", [del.id])).length === 0);
+  assert(tg.sentTo(OWNER).some((t) => t.includes("заказ удалён")));
+  ok("сайт: отзывы пишет только бот; заказы вручную — только админам; «Удалить» убирает заказ отовсюду");
+
   await tg.stop();
   console.log(`\n✅ Связь с сайтом: все проверки пройдены (${PASSED.length})`);
   await db.close();

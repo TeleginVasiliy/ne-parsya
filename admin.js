@@ -16,12 +16,14 @@
     awaiting_final: '💳 Ожидает доплаты', done: '✅ Выполнен', cancelled: '❌ Отменён'
   };
   var MANUAL = ['new', 'accepted', 'awaiting_payment', 'in_work', 'review', 'done', 'cancelled'];
-  var ACTION_NAME = { price: 'Цена', status: 'Статус', message: 'Сообщение', bundle: 'Отправлено клиенту' };
+  var ACTION_NAME = { price: 'Цена', status: 'Статус', message: 'Сообщение', bundle: 'Отправлено клиенту', delete: 'Удаление' };
   var STATE_NAME = { pending: 'отправляется', processing: 'отправляется', done: 'выполнено', error: 'ошибка' };
   var MONTHS = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
 
   var data = { orders: [], payments: [], files: [], actions: [], reviews: [] };
   var current = null; // открытый заказ
+  var manualReady = true; // таблица ручных заказов есть в базе (SQL обновлён)
+  var removed = {};       // удалённые заказы: не показываем, пока бот не уберёт их из базы
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -108,11 +110,15 @@
       SB.select('cloud_payments', 'select=*&order=id.desc&limit=5000'),
       SB.select('cloud_files', 'select=*&order=created_at.desc&limit=5000'),
       SB.select('cloud_actions', 'select=*&order=id.desc&limit=300'),
-      SB.select('reviews', 'select=*&order=created_at.desc&limit=1000').catch(function () { return []; })
+      SB.select('reviews', 'select=*&order=created_at.desc&limit=1000').catch(function () { return []; }),
+      SB.select('manual_orders', 'select=*&order=id.desc&limit=2000').catch(function () { return null; })
     ]).then(function (r) {
-      data = { orders: r[0] || [], payments: r[1] || [], files: r[2] || [], actions: r[3] || [], reviews: r[4] || [] };
+      var keep = function (x) { return !removed[x.order_id != null ? x.order_id : x.id]; };
+      data = { orders: (r[0] || []).filter(keep), payments: (r[1] || []).filter(keep), files: r[2] || [], actions: r[3] || [], reviews: r[4] || [] };
       var pending = data.actions.filter(function (a) { return a.state === 'pending'; }).length;
-      var last = data.orders.reduce(function (m, o) { return o.updated_at > m ? o.updated_at : m; }, '');
+      var last = data.orders.reduce(function (m, o) { return o.updated_at > m ? o.updated_at : m; }, ''); // до ручных заказов
+      manualReady = r[5] !== null;
+      addManual(r[5] || []);
       $('#syncNote').textContent = 'Последнее обновление от бота: ' + dt(last) +
         (pending ? ' · в очереди: ' + pending + ' действ.' : '');
       renderReport();
@@ -135,6 +141,7 @@
     var days = function (n) { return o.filter(function (x) { return now - new Date(x.created_at) < n * 864e5; }).length; };
     var count = function (list) { return o.filter(function (x) { return list.indexOf(x.status) !== -1; }).length; };
     var fromSite = o.filter(function (x) { return x.source === 'site'; }).length;
+    var manual = o.filter(function (x) { return x.manual; }).length;
     var pct = function (n) { return o.length ? Math.round(100 * n / o.length) + '% от всех' : ''; };
     var done = count(['done']), cancelled = count(['cancelled']);
     // Заказы по этапам — отдельно, чтобы было видно, сколько выполнено, а сколько ещё в процессе
@@ -149,7 +156,7 @@
       ['💰 Оплачено', money(paidSum), 'подтверждённые оплаты'],
       ['Средний чек', avg ? money(avg) : '—', 'по оплаченным заказам'],
       ['Конверсия в оплату', o.length ? Math.round(100 * paidOrders.length / o.length) + '%' : '—', paidOrders.length + ' из ' + o.length],
-      ['С сайта / из бота', fromSite + ' / ' + (o.length - fromSite), 'источник заказа']
+      ['С сайта / из бота', fromSite + ' / ' + (o.length - fromSite - manual), manual ? 'и вручную: ' + manual : 'источник заказа']
     ];
     $('#kpis').innerHTML = tiles.map(function (t) {
       return '<div class="kpi"><small>' + esc(t[0]) + '</small><b>' + esc(t[1]) + '</b><span>' + esc(t[2]) + '</span></div>';
@@ -190,7 +197,7 @@
     // По админам
     var admins = {};
     o.forEach(function (x) {
-      var k = x.admin_name || '— не взят';
+      var k = x.manual ? '✍️ Добавлены вручную' : x.admin_name || '— не взят';
       admins[k] = admins[k] || { n: 0, active: 0, paid: 0 };
       admins[k].n++;
       admins[k].paid += x.paid || 0;
@@ -301,6 +308,7 @@
     var o = data.orders.filter(function (x) { return x.id === id; })[0];
     if (!o) return;
     current = o;
+    if (o.manual) return openManual(o);
     var pays = data.payments.filter(function (p) { return p.order_id === id; });
     var files = data.files.filter(function (f) { return f.order_id === id; });
     var acts = data.actions.filter(function (a) { return a.order_id === id; }).slice(0, 15);
@@ -358,7 +366,11 @@
         return '<div><span class="act-state" data-s="' + esc(a.state) + '">' + esc(STATE_NAME[a.state] || a.state) + '</span>' +
           '<b>' + esc(ACTION_NAME[a.action] || a.action) + '</b><span class="p-muted">' + dt(a.created_at) + ' · ' + esc(a.created_by || '') +
           (a.state === 'error' ? ' · ' + esc(a.result) : '') + '</span></div>';
-      }).join('') + '</div></div>' : '');
+      }).join('') + '</div></div>' : '') +
+      '<div class="section-box"><h4>🗑 Удалить заказ</h4><form id="fDelete">' +
+      '<button class="btn btn--ghost rv-del">Удалить заказ #' + esc(o.code) + '</button>' +
+      '<p class="p-muted">Заказ исчезнет из панели, статистики, бота и кабинета клиента вместе с оплатами, файлами и отзывом. ' +
+      'Клиенту ничего не придёт. Отменить удаление нельзя.</p></form></div>';
     $('#drawerBox').innerHTML = html;
     bindDrawer(o);
     var dlg = $('#drawer');
@@ -468,6 +480,16 @@
         toast('Не получилось: ' + (/«/.test(err.message) ? err.message : explain(err)));
       }).then(function () { btn.disabled = false; btn.textContent = 'Отправить работу клиенту'; });
     });
+    var fdel = $('#fDelete');
+    fdel.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (!confirm('Удалить заказ #' + o.code + ' навсегда? Вернуть его будет нельзя.')) return;
+      sendAction(fdel, 'delete', {}, 'Заказ #' + o.code + ' удаляется').then(function (sent) {
+        if (!sent) return;
+        dropOrder(o.id);
+        $('#drawer').close();
+      });
+    });
     $$('.js-sign', $('#drawerBox')).forEach(function (b) {
       b.addEventListener('click', function () {
         var w = window.open('', '_blank');
@@ -478,6 +500,93 @@
     });
   }
   $('#drawer').addEventListener('close', function () { current = null; });
+
+  // Убрать заказ из панели сразу, не дожидаясь бота
+  function dropOrder(id) {
+    removed[id] = true;
+    data.orders = data.orders.filter(function (x) { return x.id !== id; });
+    data.payments = data.payments.filter(function (p) { return p.order_id !== id; });
+    renderReport();
+    renderOrders();
+  }
+
+  /* ---------------- заказы, добавленные вручную ---------------- */
+  // Хранятся отдельно (manual_orders), а в панели выглядят как выполненные и оплаченные заказы —
+  // поэтому сами попадают в архив, выручку, средний чек и остальную статистику.
+  // id у них отрицательные, чтобы не совпасть с заказами из бота.
+  function addManual(rows) {
+    rows.forEach(function (m) {
+      if (removed[-m.id]) return;
+      data.orders.push({
+        id: -m.id, manual_id: m.id, manual: true, code: 'M' + m.id, status: 'done', client_name: m.client_name,
+        type_name: '✍️ Добавлен вручную', price: m.amount, paid: m.amount, source: 'manual', created_by: m.created_by,
+        created_at: m.created_at, updated_at: m.created_at, lines: []
+      });
+      data.payments.push({ id: 'm' + m.id, order_id: -m.id, amount: m.amount, status: 'confirmed', created_at: m.created_at, confirmed_at: m.created_at });
+    });
+  }
+
+  function openManual(o) {
+    $('#drawerBox').innerHTML =
+      '<div class="drawer__head"><h2 class="p-title" style="margin:0">#' + esc(o.code) + '</h2>' +
+      '<button type="button" class="icon-btn" id="closeDrawer" aria-label="Закрыть">✕</button></div>' +
+      '<div class="section-box"><div class="p-row">' + pill(o.status) + '<span class="p-muted">' + esc(o.type_name) + '</span></div>' +
+      '<dl class="kv"><dt>Клиент</dt><dd>' + esc(o.client_name) + '</dd><dt>Сумма</dt><dd>' + money(o.price) + '</dd>' +
+      '<dt>Добавлен</dt><dd>' + dt(o.created_at) + (o.created_by ? ' · ' + esc(o.created_by) : '') + '</dd></dl></div>' +
+      '<div class="section-box"><h4>🗑 Удалить заказ</h4><form id="fDelete">' +
+      '<button class="btn btn--ghost rv-del">Удалить заказ #' + esc(o.code) + '</button>' +
+      '<p class="p-muted">Сумма уйдёт из статистики. Отменить удаление нельзя.</p></form></div>';
+    $('#closeDrawer').addEventListener('click', function () { $('#drawer').close(); });
+    var f = $('#fDelete');
+    f.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (!confirm('Удалить заказ #' + o.code + ' (' + o.client_name + ', ' + money(o.price) + ')?')) return;
+      var b = f.querySelector('button');
+      b.disabled = true;
+      SB.remove('manual_orders', 'id=eq.' + o.manual_id).then(function () {
+        dropOrder(o.id);
+        $('#drawer').close();
+        toast('Заказ #' + o.code + ' удалён');
+      }, function (err) { b.disabled = false; toast('Не получилось: ' + explain(err)); });
+    });
+    var dlg = $('#drawer');
+    if (!dlg.open) dlg.showModal();
+  }
+
+  function openManualForm() {
+    current = null;
+    $('#drawerBox').innerHTML =
+      '<div class="drawer__head"><h2 class="p-title" style="margin:0">➕ Заказ вручную</h2>' +
+      '<button type="button" class="icon-btn" id="closeDrawer" aria-label="Закрыть">✕</button></div>' +
+      '<div class="section-box"><form id="fManual">' +
+      '<input class="input" name="client" maxlength="80" required placeholder="Клиент: имя или ник">' +
+      '<input class="input" type="number" name="amount" min="1" step="1" required placeholder="Сумма, ₽">' +
+      '<button class="btn btn--primary">Добавить заказ</button>' +
+      '<p class="p-muted">Для заказов, которые пришли не через бота и не через сайт. Заказ сразу попадёт в архив как выполненный и оплаченный ' +
+      'и войдёт в статистику: всего заказов, выручку, средний чек.</p></form></div>';
+    $('#closeDrawer').addEventListener('click', function () { $('#drawer').close(); });
+    var f = $('#fManual');
+    f.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var name = f.client.value.trim(), amount = Math.round(Number(f.amount.value));
+      if (!name) { toast('Укажите клиента'); return; }
+      if (!(amount > 0)) { toast('Укажите сумму'); return; }
+      if (!manualReady) { toast('Сначала выполните обновлённый supabase-setup.sql в Supabase → SQL Editor'); return; }
+      var b = f.querySelector('button');
+      b.disabled = true;
+      SB.insert('manual_orders', { client_name: name, amount: amount }).then(function (rows) {
+        addManual(rows || []);
+        renderReport();
+        renderOrders();
+        $('#drawer').close();
+        toast('Заказ добавлен: ' + name + ', ' + money(amount));
+      }, function (err) { b.disabled = false; toast('Не получилось: ' + explain(err)); });
+    });
+    var dlg = $('#drawer');
+    if (!dlg.open) dlg.showModal();
+    f.client.focus();
+  }
+  $$('.js-add-manual').forEach(function (b) { b.addEventListener('click', openManualForm); });
   $('#drawer').addEventListener('click', function (e) { if (e.target === $('#drawer')) $('#drawer').close(); });
 
   /* ---------------- отзывы ---------------- */

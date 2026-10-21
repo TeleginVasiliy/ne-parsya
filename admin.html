@@ -82,6 +82,7 @@
         <div class="filters">
           <input class="input" type="search" id="q" placeholder="Поиск: номер, имя, предмет…" aria-label="Поиск">
           <select class="input" id="fStatus" aria-label="Статус"><option value="">Все статусы</option></select>
+          <button type="button" class="btn btn--ghost js-add-manual">➕ Добавить вручную</button>
         </div>
         <div class="table-wrap"><table class="orders-t" id="ordersTable"></table></div>
       </div>
@@ -91,6 +92,7 @@
         <div class="filters">
           <input class="input" type="search" id="aq" placeholder="Поиск: номер, имя, предмет…" aria-label="Поиск в архиве">
           <select class="input" id="aStatus" aria-label="Статус"><option value="">Все завершённые</option></select>
+          <button type="button" class="btn btn--ghost js-add-manual">➕ Добавить вручную</button>
         </div>
         <p class="p-muted" id="archiveSum" style="margin:0 0 12px"></p>
         <div class="table-wrap"><table class="orders-t" id="archiveTable"></table></div>
@@ -113,6 +115,6 @@
 
   <script src="config.js?v=7"></script>
   <script src="sb.js?v=7"></script>
-  <script src="admin.js?v=8"></script>
+  <script src="admin.js?v=9"></script>
 </body>
 </html>

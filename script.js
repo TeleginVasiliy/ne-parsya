@@ -21,7 +21,6 @@
   var DRAFT_KEY = 'np-draft-v1';
   var THEME_KEY = 'np-theme';
   var VISIT_KEY = 'np-visited-v1';
-  var REVIEW_KEY = 'np-review-at';
 
   // База Supabase: если url и ключ заполнены — счётчики и отзывы «живые»
   var sbUrl = function (u) {
@@ -382,7 +381,6 @@
     return '<span class="placeholder">' + svg('image') + '<span>Здесь будет превью</span></span>';
   }
 
-  var RATING_WORDS = ['', 'Плохо', 'Так себе', 'Нормально', 'Хорошо', 'Отлично'];
 
   // state: loading — грузим, error — не загрузилось, ready — данные есть
   function renderReviews(list, state) {
@@ -394,7 +392,7 @@
       var text = state === 'error'
         ? '<b>Не получилось загрузить отзывы</b><p>Попробуйте обновить страницу чуть позже.</p>'
         : LIVE
-          ? '<b>Пока нет отзывов</b><p>Заказывали у меня работу? Поделитесь впечатлением — ваш отзыв будет первым.</p>'
+          ? '<b>Пока нет отзывов</b><p>Отзывы появятся здесь после первых выполненных заказов.</p>'
           : '<b>Отзывы скоро появятся</b>';
       track.innerHTML = '<div class="review review--empty card">' + text + '</div>';
     } else {
@@ -1488,98 +1486,6 @@
       });
   }
 
-  function initReviewForm() {
-    if (!LIVE) return;
-    $('#reviewsCta').hidden = false;
-    var modal = $('#reviewModal');
-    var rf = $('#reviewForm');
-    var err = $('#reviewError');
-    var submit = $('#reviewSubmit');
-
-    if (CFG.reviewsModeration) $('#reviewLead').textContent = 'Отзыв появится на сайте после быстрой проверки.';
-
-    $('#rvWork').innerHTML = WORK_TYPES.map(function (t) {
-      return '<label class="chip"><input type="radio" name="work" value="' + esc(t.short) + '"><span>' + esc(t.short) + '</span></label>';
-    }).join('');
-
-    function showError(text) { err.textContent = text; err.hidden = !text; }
-
-    $('#openReview').addEventListener('click', function () {
-      showError('');
-      openModal(modal);
-    });
-    rf.addEventListener('change', function (e) {
-      if (e.target.name === 'rating') $('#ratingCaption').textContent = RATING_WORDS[Number(e.target.value)] || '';
-    });
-    $('#rvText').addEventListener('input', function () { $('#rvCount').textContent = String(this.value.length); });
-    rf.addEventListener('input', function () { if (!err.hidden) showError(''); });
-
-    rf.addEventListener('submit', function (e) {
-      e.preventDefault();
-      var fd = new FormData(rf);
-      var rating = Number(fd.get('rating'));
-      var name = String(fd.get('name') || '').trim();
-      var uni = String(fd.get('university') || '').trim();
-      var work = String(fd.get('work') || '').trim();
-      var message = String(fd.get('message') || '').trim();
-
-      // Бот заполнил скрытое поле — делаем вид, что всё хорошо
-      if (fd.get('website')) { closeModal(modal); return; }
-
-      var problem = !rating ? 'Поставьте оценку — от 1 до 5 звёзд.'
-        : !name ? 'Напишите, как подписать отзыв.'
-        : message.length < 10 ? 'Напишите отзыв хотя бы в пару слов — минимум 10 символов.'
-        : '';
-      if (problem) { showError(problem); play('error'); return; }
-
-      // Не чаще одного отзыва с браузера за 12 часов
-      var last = 0;
-      try { last = Number(localStorage.getItem(REVIEW_KEY)) || 0; } catch (e2) { /* без ограничения */ }
-      if (Date.now() - last < 12 * 3600 * 1000) {
-        showError('Вы уже оставили отзыв недавно. Спасибо! Новый можно будет добавить позже.');
-        play('error');
-        return;
-      }
-
-      showError('');
-      submit.disabled = true;
-      submit.textContent = 'Отправляем…';
-      api('reviews', {
-        method: 'POST',
-        prefer: 'return=minimal',
-        body: { name: name, university: uni || null, work: work || null, message: message, rating: rating }
-      }).then(function () {
-        try { localStorage.setItem(REVIEW_KEY, String(Date.now())); } catch (e3) { /* ничего */ }
-        rf.reset();
-        $('#ratingCaption').textContent = 'Выберите оценку';
-        $('#rvCount').textContent = '0';
-        closeModal(modal);
-        play('success');
-        toast(CFG.reviewsModeration ? 'Спасибо! Отзыв появится после проверки.' : 'Спасибо! Ваш отзыв опубликован.', '💜', 5000);
-        loadReviews();
-        api('rpc/get_stats', { method: 'POST', body: {} }).then(setStats).catch(function () { /* не критично */ });
-      }).catch(function (e4) {
-        console.warn('[Не Парься] Отзыв не отправлен:', e4.message, e4.details || '');
-        // Понятная причина вместо общего «проверьте интернет» — так проще найти, что не так
-        var d = String(e4.details || '');
-        showError(e4.status === 400 || /check constraint|violates check/i.test(d)
-          ? 'Проверьте поля: имя до 60 символов, отзыв от 10 до 1000 символов.'
-          : e4.status === 401 || e4.status === 403
-            ? (/row-level security/i.test(d)
-              ? 'База не приняла отзыв (правила доступа). Владельцу сайта: выполните заново supabase-setup.sql. [код ' + e4.status + ']'
-              : 'База отклонила ключ. Владельцу сайта: проверьте в config.js url и publishable-ключ Supabase. [код ' + e4.status + ']')
-          : e4.status === 404
-            ? 'В базе нет таблицы отзывов. Владельцу сайта: выполните supabase-setup.sql. [код 404]'
-          : e4.status
-            ? 'База временно не отвечает, попробуйте через минуту. [код ' + e4.status + ']'
-            : 'Не удалось связаться с базой. Проверьте интернет; если не помогает — попробуйте с VPN или другой сетью.');
-        play('error');
-      }).then(function () {
-        submit.disabled = false;
-        submit.textContent = 'Опубликовать отзыв';
-      });
-    });
-  }
 
   function initFaq() {
     $('#faqList').addEventListener('click', function (e) {
@@ -1622,7 +1528,6 @@
 
     loadStats();
     loadReviews();
-    initReviewForm();
 
     $('#servicesGrid').addEventListener('click', function (e) {
       var card = e.target.closest('[data-type]');

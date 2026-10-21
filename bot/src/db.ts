@@ -235,6 +235,23 @@ export async function addPaid(orderId: number, amount: number) {
   await exec(`update bot_orders set paid = paid + $1, ${TOUCH} where id = $2`, [amount, orderId]);
 }
 
+/** Удаляет заказ целиком: оплаты, файлы, отзыв, карточки у админов и копию на сайте.
+ *  Возвращает сообщения-карточки заказа у админов — их можно убрать из чатов. */
+export async function deleteOrder(orderId: number): Promise<{ chat_id: number; message_id: number }[]> {
+  const o = await getOrder(orderId);
+  if (!o) return [];
+  const cards = await q<{ chat_id: number; message_id: number }>(
+    "select chat_id, message_id from bot_cards where kind = 'order' and ref_id = $1", [orderId]);
+  await exec("delete from bot_cards where (kind = 'order' and ref_id = $1) or (kind = 'payment' and ref_id in (select id from bot_payments where order_id = $1)) or (kind = 'review' and ref_id in (select id from bot_reviews where order_id = $1))", [orderId]);
+  for (const table of ["bot_payments", "bot_files", "bot_reviews", "bot_messages_map", "cloud_payments", "cloud_files"]) {
+    await exec(`delete from ${table} where order_id = $1`, [orderId]);
+  }
+  await exec("delete from cloud_orders where id = $1", [orderId]);
+  await exec("delete from reviews where order_code = $1", [o.code]).catch(() => 0); // отзыв на сайте (если база уже обновлена)
+  await exec("delete from bot_orders where id = $1", [orderId]);
+  return cards;
+}
+
 export async function markReminded(orderId: number) {
   await exec("update bot_orders set remind_sent = true where id = $1", [orderId]);
 }
@@ -420,6 +437,22 @@ export async function getReview(id: number): Promise<Row | null> {
 export async function publishReview(id: number, adminId: number): Promise<boolean> {
   return await exec("update bot_reviews set published = true, published_by = $1 where id = $2 and published = false",
     [adminId, id]) === 1;
+}
+
+/** Опубликованный отзыв с текстом — ещё и на сайт, с подписью «что было сделано». Без текста сайт отзыв не примет. */
+export async function publishSiteReview(r: Row, o: Order, work: string): Promise<boolean> {
+  const text = String(r.text ?? "").trim();
+  if ([...text].length < 10) return false;
+  const name = String((await one<{ first_name: string | null }>("select first_name from bot_users where id = $1", [r.user_id]))?.first_name
+    ?? "").trim().slice(0, 60) || "Клиент";
+  try {
+    return await exec(
+      `insert into reviews(name, work, message, rating, approved, order_code) values ($1, nullif($2, ''), $3, $4, true, $5)
+       on conflict (order_code) do nothing`, [name, work.slice(0, 60), text.slice(0, 1000), r.rating, o.code]) === 1;
+  } catch (e) {
+    console.error(`Отзыв по заказу #${o.code} не попал на сайт: ${(e as Error).message}`);
+    return false;
+  }
 }
 
 export async function publishedReviews(): Promise<Row[]> {
