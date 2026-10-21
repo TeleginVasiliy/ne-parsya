@@ -121,7 +121,7 @@ async function scenarioMain() {
   await d.send(owner, "/setsite https://ne-parsya.netlify.app");
   assert(tg.sentTo(OWNER).at(-2)!.includes("Ссылка обновлена"));
   let mb = tg.methods("setChatMenuButton").pop()!.menu_button;
-  assert(mb.type === "web_app" && mb.web_app.url === "https://ne-parsya.netlify.app?from=menu&bot=ne_parsya_bot" && mb.text === "🌐 Сайт", JSON.stringify(mb));
+  assert(mb.type === "web_app" && mb.web_app.url === "https://ne-parsya.netlify.app?from=menu&bot=ne_parsya_bot" && mb.text === "🌐 Сайт (предпочтительно)", JSON.stringify(mb));
   ok("/setsite: http и страница входа отклонены, https сохранён, кнопка меню обновлена");
 
   await d.send(owner, "/setsite");

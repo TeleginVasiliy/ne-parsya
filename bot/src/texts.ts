@@ -3,7 +3,7 @@
 
 export const T = {
   BRAND: "Не Парься",
-  WORK_TYPES: {"control": {"name": "Контрольная работа", "emoji": "📋", "volume": "tasks", "design": null}, "rgr": {"name": "РГР", "emoji": "🧮", "volume": "pages", "design": "text"}, "referat": {"name": "Реферат", "emoji": "📄", "volume": "pages", "design": "text"}, "essay": {"name": "Эссе", "emoji": "✍️", "volume": "pages", "design": "text"}, "coursework": {"name": "Курсовая работа", "emoji": "📘", "volume": "pages", "design": "text"}, "diploma": {"name": "ВКР / диплом", "emoji": "🎓", "volume": "pages", "design": "text"}, "practice": {"name": "Отчёт по практике", "emoji": "💼", "volume": "pages", "design": "text"}, "presentation": {"name": "Презентация", "emoji": "🖥", "volume": "slides", "design": "pres"}, "drawings": {"name": "Чертежи", "emoji": "📐", "volume": "sheets", "design": null}, "tasks": {"name": "Решение задач", "emoji": "➗", "volume": "tasks", "design": null}, "other": {"name": "Другое", "emoji": "✨", "volume": "free", "design": null}},
+  WORK_TYPES: {"control": {"name": "Контрольная работа", "emoji": "📋", "volume": "tasks", "design": null}, "rgr": {"name": "РГР", "emoji": "🧮", "volume": "pages", "design": "text"}, "referat": {"name": "Реферат", "emoji": "📄", "volume": "pages", "design": "text"}, "essay": {"name": "Эссе", "emoji": "✍️", "volume": "pages", "design": "text"}, "coursework": {"name": "Курсовая работа", "emoji": "📘", "volume": "pages", "design": "text"}, "diploma": {"name": "ВКР / диплом", "emoji": "🎓", "volume": "pages", "design": "text"}, "practice": {"name": "Отчёт по практике", "emoji": "💼", "volume": "pages", "design": "text"}, "presentation": {"name": "Презентация", "emoji": "🖥", "volume": "slides", "design": "pres"}, "drawings": {"name": "Чертежи", "emoji": "📐", "volume": "sheets", "design": null}, "tasks": {"name": "Решение задач", "emoji": "➗", "volume": "tasks", "design": null}, "article": {"name": "Научная статья", "emoji": "📰", "volume": "pages", "design": "text"}, "other": {"name": "Другое", "emoji": "✨", "volume": "free", "design": null}},
   VOLUME: {"pages": {"ask": "Сколько <b>страниц</b> нужно? Напишите число или выберите вариант.", "forms": ["стр.", "стр.", "стр."], "quick": [5, 10, 15, 20, 30, 40, 60, 80]}, "slides": {"ask": "Сколько <b>слайдов</b> нужно? Напишите число или выберите вариант.", "forms": ["слайд", "слайда", "слайдов"], "quick": [8, 10, 12, 15, 20, 25]}, "tasks": {"ask": "Сколько <b>задач / заданий</b>? Напишите число или выберите вариант.", "forms": ["задача", "задачи", "задач"], "quick": [1, 2, 3, 5, 8, 10]}, "sheets": {"ask": "Сколько <b>листов</b> чертежей? Напишите число или выберите вариант.", "forms": ["лист", "листа", "листов"], "quick": [1, 2, 3, 4, 5, 8]}, "free": {"ask": "Опишите <b>объём</b> своими словами: например, «2 лабораторные по 5 стр.».", "forms": ["", "", ""], "quick": []}},
   COURSES: [["1", "1"], ["2", "2"], ["3", "3"], ["4", "4"], ["5", "5"], ["6", "6"], ["mag", "Магистратура"], ["college", "Колледж"]],
   COURSE_LABEL: {"mag": "магистратура", "college": "колледж"},
@@ -24,7 +24,7 @@ export const T = {
   STATUS: {"new": "🆕 Новый", "accepted": "👍 Принят", "awaiting_payment": "💳 Ожидает оплаты", "in_work": "🛠 В работе", "review": "🔎 На проверке", "awaiting_final": "💳 Ожидает доплаты", "done": "✅ Выполнен", "cancelled": "❌ Отменён"},
   STATUS_MANUAL: ["new", "accepted", "awaiting_payment", "in_work", "review", "done", "cancelled"],
   ACTIVE_STATUSES: ["new", "accepted", "awaiting_payment", "in_work", "review", "awaiting_final"],
-  BTN_SITE: "🌐 Сайт",
+  BTN_SITE: "🌐 Сайт (предпочтительно)",
   BTN_ORDER: "📝 Оформить заказ",
   BTN_MY: "📦 Мои заказы",
   BTN_EXAMPLES: "🖼 Примеры работ",
@@ -32,8 +32,8 @@ export const T = {
   BTN_FAQ: "❓ Вопросы и ответы",
   BTN_CONTACT: "💬 Написать исполнителю",
   MENU_BUTTONS: ["📝 Оформить заказ", "📦 Мои заказы", "🖼 Примеры работ", "⭐ Отзывы", "❓ Вопросы и ответы", "💬 Написать исполнителю"],
-  MENU_WEBAPP_TEXT: "🌐 Сайт",
-  BTN_OPEN_SITE: "🌐 Открыть сайт и собрать заказ",
+  MENU_WEBAPP_TEXT: "🌐 Сайт (предпочтительно)",
+  BTN_OPEN_SITE: "🌐 Открыть сайт и собрать заказ (предпочтительно)",
   BTN_ORDER_IN_BOT: "📝 Оформить заказ в боте",
   INPUT_PLACEHOLDER: "Выберите пункт меню или напишите сообщение",
   START: "👋 Привет! Это <b>«Не Парься»</b> — помощь со студенческими работами: от контрольной до диплома.\n\nСоберите заказ на сайте за пару минут или оформите прямо здесь — исполнитель посмотрит детали и назовёт стоимость.",
