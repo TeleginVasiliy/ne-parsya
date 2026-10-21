@@ -107,11 +107,14 @@ function rows(buttons: Btn[], width: number): Btn[][] {
   return out;
 }
 
-function navRow(data: A): Btn[] {
+function navRows(data: A): Btn[][] {
   const row: Btn[] = [];
-  if (data.hist.length || (data.edit !== null && data.edit !== undefined)) row.push(fbtn(T.BTN_BACK, "_nav", "back"));
-  row.push(fbtn(T.BTN_CANCEL, "_nav", "cancel"));
-  return row;
+  const editing = data.edit !== null && data.edit !== undefined;
+  if (data.hist.length || editing) row.push(fbtn(T.BTN_BACK, "_nav", "back"));
+  // Далеко ушли по анкете — можно сразу вернуться к первому вопросу, а не листать «Назад»
+  if (!editing && data.hist.length > 1) row.push(fbtn(T.BTN_FORM_START, "_nav", "start"));
+  const cancel = fbtn(T.BTN_CANCEL, "_nav", "cancel");
+  return row.length > 1 ? [row, [cancel]] : [[...row, cancel]];
 }
 
 /** «минимализм» → «Минимализм», но названия вроде «eTXT» не трогаем. */
@@ -188,7 +191,7 @@ function renderQuestion(data: A, config: Config): [string, { inline_keyboard: Bt
   } else {
     text = T.Q_TYPE; // на всякий случай
   }
-  kb.push(navRow(data));
+  kb.push(...navRows(data));
   return [head + text, { inline_keyboard: kb }];
 }
 
@@ -319,6 +322,12 @@ export async function onFormButton(ctx: Ctx, q: string, v: string) {
         data.edit = null;
         data.q = "confirm";
       }
+      return await show(ctx, data, ctx.cbMsg);
+    }
+    if (v === "start") {
+      // Ответы сохраняются — на каждом шаге можно оставить прежний или выбрать другой
+      data.hist = [];
+      data.q = "type";
       return await show(ctx, data, ctx.cbMsg);
     }
     if (v === "edit") return await show(ctx, data, ctx.cbMsg, "edit_menu");

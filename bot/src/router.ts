@@ -194,10 +194,10 @@ async function onCallback(ctx: Ctx, cbq: Msg): Promise<boolean> {
     if (prefix === "bc" && isOwner) return await A.cbBroadcast(ctx, parts[1]);
     if (prefix === "p") return void await P.cbPaymentDecision(ctx, parts[1], n(2)), false;
   }
-  if (cbq.data === screen.BACK_DATA) {
-    // «⬅️ Назад»: прошлый экран. Незаконченные шаги (анкета, сообщение исполнителю) при этом закрываются
+  if (cbq.data === screen.BACK_DATA || cbq.data === screen.HOME_DATA) {
+    // «⬅️ Назад» / «⏮ В начало»: прошлый (или самый первый) экран. Незаконченные шаги (анкета, сообщение исполнителю) при этом закрываются
     if (st && !isAdmin) await ctx.clearState();
-    if (!await screen.back(ctx.chatId, cbq.message.message_id)) await ctx.answer(T.NOTHING_BACK, true);
+    if (!await screen.back(ctx.chatId, cbq.message.message_id, cbq.data === screen.HOME_DATA)) await ctx.answer(T.NOTHING_BACK, true);
     return false;
   }
   if (prefix === "c") {

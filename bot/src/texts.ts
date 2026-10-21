@@ -50,6 +50,7 @@ export const T = {
   FORM_TITLE: "📝 <b>Оформление заказа</b> · Шаг {step}/{total}",
   BTN_BACK: "◀️ Назад",
   BTN_CANCEL: "❌ Отмена",
+  BTN_FORM_START: "⏮ В начало заказа",
   BTN_SKIP: "Пропустить ➡️",
   BTN_DONE: "✅ Готово",
   BTN_TOPIC_AUTO: "🎲 Тему подберёт исполнитель",

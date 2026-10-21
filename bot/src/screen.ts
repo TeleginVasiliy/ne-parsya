@@ -16,6 +16,8 @@ import { background } from "./bg.ts";
 
 export const BACK_TEXT = "◀️ Назад";
 export const BACK_DATA = "c:back:0";
+export const HOME_TEXT = "⏮ В начало";
+export const HOME_DATA = "c:home:0";
 const HISTORY = 6; // сколько прошлых экранов можно вернуть кнопкой «Назад»
 
 /** Экран, который можно показать снова: текст и кнопки (без «Назад» — её добавляем сами). */
@@ -41,13 +43,17 @@ function remove(chatId: number, ids: number[]) {
 const isInline = (k: Markup) => !k || Array.isArray(k.inline_keyboard);
 const strip = (k: Markup): Markup => {
   if (!k?.inline_keyboard) return k;
-  const rows = k.inline_keyboard.filter((row: { callback_data?: string }[]) => !row.some((b) => b.callback_data === BACK_DATA));
+  const rows = k.inline_keyboard.filter((row: { callback_data?: string }[]) =>
+    !row.some((b) => b.callback_data === BACK_DATA || b.callback_data === HOME_DATA));
   return rows.length ? { ...k, inline_keyboard: rows } : null;
 };
-/** Добавляет «⬅️ Назад», если есть куда возвращаться. */
-function withBack(k: Markup, canGoBack: boolean): Markup {
-  if (!canGoBack || !isInline(k)) return k;
-  return { inline_keyboard: [...(strip(k)?.inline_keyboard ?? []), [{ text: BACK_TEXT, callback_data: BACK_DATA }]] };
+/** Добавляет «⬅️ Назад», если есть куда возвращаться, а если шагов назад много — ещё и «⏮ В начало». */
+function withBack(k: Markup, canGoBack: boolean | number): Markup {
+  const depth = Number(canGoBack);
+  if (!depth || !isInline(k)) return k;
+  const row = [{ text: BACK_TEXT, callback_data: BACK_DATA }];
+  if (depth > 1) row.push({ text: HOME_TEXT, callback_data: HOME_DATA });
+  return { inline_keyboard: [...(strip(k)?.inline_keyboard ?? []), row] };
 }
 
 /** Добавить сообщения к текущему экрану (удалятся при следующем переходе). */
@@ -100,8 +106,8 @@ export async function newScreen(chatId: number, text: string, markup?: Markup, u
   opts: { history?: boolean; menu?: boolean } = {}): Promise<Msg | null> {
   const old = await db.getScreen(chatId);
   const remember = opts.history !== false;
-  const canGoBack = remember && (!!old.cur || old.hist.length > 0);
-  const msg = await tg.sendText(chatId, text, withBack(markup, canGoBack));
+  const depth = remember ? old.hist.length + (old.cur ? 1 : 0) : 0;
+  const msg = await tg.sendText(chatId, text, withBack(markup, depth));
   if (!msg) {
     if (userMsgId) await track(chatId, userMsgId);
     return null;
@@ -119,19 +125,19 @@ export async function newScreen(chatId: number, text: string, markup?: Markup, u
 export async function editScreen(chatId: number, messageId: number, text: string, markup?: Markup): Promise<Msg | null> {
   const old = await db.getScreen(chatId);
   const hist = old.cur ? [...old.hist, old.cur].slice(-HISTORY) : old.hist;
-  const msg = await tg.editText(chatId, messageId, text, withBack(markup, hist.length > 0));
+  const msg = await tg.editText(chatId, messageId, text, withBack(markup, hist.length));
   if (!msg) return await newScreen(chatId, text, markup);
   await db.setScreen(chatId, { ...old, cur: { t: text, k: strip(markup) ?? null }, hist });
   return msg;
 }
 
-/** «⬅️ Назад»: показать предыдущий экран. false — возвращаться некуда. */
-export async function back(chatId: number, messageId: number): Promise<boolean> {
+/** «⬅️ Назад»: показать предыдущий экран (home — самый первый из запомненных). false — возвращаться некуда. */
+export async function back(chatId: number, messageId: number, home = false): Promise<boolean> {
   const s = await db.getScreen(chatId);
-  const prev = s.hist[s.hist.length - 1];
+  const prev = home ? s.hist[0] : s.hist[s.hist.length - 1];
   if (!prev) return false;
-  const hist = s.hist.slice(0, -1);
-  const markup = withBack(prev.k, hist.length > 0);
+  const hist = home ? [] : s.hist.slice(0, -1);
+  const markup = withBack(prev.k, hist.length);
   // Чаще всего «Назад» нажимают на текущем экране — правим его на месте, без мигания
   if (s.ids.includes(messageId) && await tg.editText(chatId, messageId, prev.t, markup)) {
     await db.setScreen(chatId, { ...s, ids: [messageId], cur: prev, hist });

@@ -353,6 +353,14 @@ async function scenarioMain() {
   await d.click(c2, "◀️ Назад");
   assert(tg.lastText(C2).includes("курсе"));
   await d.click(c2, "Колледж");
+  assert(tg.findButton(C2, "В начало заказа"));
+  await d.click(c2, "В начало заказа");
+  assert(tg.lastText(C2).includes("Шаг 1/") && !tg.findButton(C2, "Назад"), tg.lastText(C2));
+  await d.click(c2, "Контрольная работа");
+  await d.send(c2, "Высшая математика");
+  await d.send(c2, "Пределы и производные");
+  await d.send(c2, "МГТУ");
+  await d.click(c2, "Колледж");
   await d.send(c2, "8");
   await d.click(c2, "Завтра");
   await d.click(c2, "80%");
@@ -369,7 +377,7 @@ async function scenarioMain() {
   summ = tg.lastText(C2);
   assert(summ.includes("Решение задач") && summ.includes("6 задач") && summ.includes("МГТУ, колледж") && summ.includes("Оригинальность:</b> 80%") && !summ.includes("eTXT"), summ);
   await d.click(c2, "Отправить");
-  ok("контрольная: 10 шагов, «Назад», смена типа через «Изменить» переспрашивает объём");
+  ok("контрольная: 10 шагов, «Назад», «В начало заказа», смена типа через «Изменить» переспрашивает объём");
 
   await d.send(c2, "📝 Оформить заказ");
   await d.send(c2, "📦 Мои заказы");
