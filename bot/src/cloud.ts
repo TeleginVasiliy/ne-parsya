@@ -11,7 +11,7 @@ import * as K from "./kb.ts";
 import * as screen from "./screen.ts";
 import {
   changeStatus, deliverResult, notifyOrderAdmins, offerText, paymentDetailsText, paymentKb, paymentText, prepayAmount,
-  refreshOrderCards, sendOffer, sendPaymentInstructions, sendStoredFile, undeliveredReason,
+  refreshOrderCards, sendOffer, sendPaymentInstructions, sendStoredFile, undeliveredReason, workSummary,
 } from "./services.ts";
 import { createSiteOrder, normalizePayload } from "./siteOrders.ts";
 import * as tg from "./tg.ts";
@@ -159,6 +159,20 @@ async function pushOrder(o: Order) {
        price = excluded.price, prepay = excluded.prepay, paid = excluded.paid, deadline = excluded.deadline,
        deadline_text = excluded.deadline_text, admin_name = excluded.admin_name, reject_reason = excluded.reject_reason,
        lines = excluded.lines, updated_at = excluded.updated_at`, [o.id, token, typeName]);
+}
+
+/** Опубликованные отзывы — на сайт, с подписью «что было сделано». Удалённый в панели отзыв обратно не вернётся. */
+export async function pushReviews(): Promise<number> {
+  let pushed = 0;
+  try {
+    for (const r of await db.reviewsForSite()) {
+      await db.putSiteReview(r, workSummary({ data: r.data ?? {} }));
+      pushed++;
+    }
+  } catch (e) {
+    log(`Отзывы не выгрузились на сайт (выполнен ли свежий supabase-setup.sql?): ${(e as Error).message}`);
+  }
+  return pushed;
 }
 
 export async function pushChanged(): Promise<number> {
@@ -434,5 +448,6 @@ export async function syncOnce(config: Config) {
     }
   }
   stats.pushed = await pushChanged();
+  await pushReviews();
   return stats;
 }

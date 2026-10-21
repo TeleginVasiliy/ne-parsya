@@ -405,6 +405,8 @@ create table if not exists public.bot_reviews (
   published     boolean not null default false,
   published_by  bigint
 );
+alter table public.bot_reviews add column if not exists on_site boolean not null default false; -- уже выложен на сайт
+
 -- Шаг диалога каждого пользователя (оформление заказа, ввод цены и т. п.)
 create table if not exists public.bot_states (
   user_id     bigint primary key,

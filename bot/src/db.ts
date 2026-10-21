@@ -439,20 +439,23 @@ export async function publishReview(id: number, adminId: number): Promise<boolea
     [adminId, id]) === 1;
 }
 
-/** Опубликованный отзыв с текстом — ещё и на сайт, с подписью «что было сделано». Без текста сайт отзыв не примет. */
-export async function publishSiteReview(r: Row, o: Order, work: string): Promise<boolean> {
+/** Опубликованные в боте отзывы, которых ещё нет на сайте. */
+export async function reviewsForSite(): Promise<Row[]> {
+  return await q(
+    `select r.*, u.first_name, o.code, o.data from bot_reviews r join bot_orders o on o.id = r.order_id
+     left join bot_users u on u.id = r.user_id where r.published and not r.on_site order by r.id limit 50`);
+}
+
+/** Отзыв на сайт (таблица reviews). Без текста (меньше 10 символов) сайт отзыв не примет — только отмечаем. */
+export async function putSiteReview(r: Row, work: string) {
   const text = String(r.text ?? "").trim();
-  if ([...text].length < 10) return false;
-  const name = String((await one<{ first_name: string | null }>("select first_name from bot_users where id = $1", [r.user_id]))?.first_name
-    ?? "").trim().slice(0, 60) || "Клиент";
-  try {
-    return await exec(
+  if ([...text].length >= 10) {
+    await exec(
       `insert into reviews(name, work, message, rating, approved, order_code) values ($1, nullif($2, ''), $3, $4, true, $5)
-       on conflict (order_code) do nothing`, [name, work.slice(0, 60), text.slice(0, 1000), r.rating, o.code]) === 1;
-  } catch (e) {
-    console.error(`Отзыв по заказу #${o.code} не попал на сайт: ${(e as Error).message}`);
-    return false;
+       on conflict (order_code) do nothing`,
+      [String(r.first_name ?? "").trim().slice(0, 60) || "Клиент", work.slice(0, 60), text.slice(0, 1000), r.rating, r.code]);
   }
+  await exec("update bot_reviews set on_site = true where id = $1", [r.id]);
 }
 
 export async function publishedReviews(): Promise<Row[]> {

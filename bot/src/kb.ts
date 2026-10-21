@@ -38,7 +38,20 @@ export function siteUrl(url: string, how: string): string {
 }
 
 // ---------------- клиент ----------------
-export function mainMenu(webappUrl: string | null) {
+/** Адрес админ-панели рядом с сайтом: …/ne-parsya/ → …/ne-parsya/admin.html */
+export function adminPanelUrl(webappUrl: string | null): string | null {
+  if (!webappUrl) return null;
+  try {
+    const u = new URL(webappUrl);
+    if (!u.pathname.endsWith("/") && !/\.[a-z0-9]+$/i.test(u.pathname)) u.pathname += "/";
+    return new URL("admin.html", u.origin + u.pathname).href;
+  } catch {
+    return null;
+  }
+}
+
+/** adminUrl — только у админов: кнопка «Админ-панель» внизу клавиатуры. */
+export function mainMenu(webappUrl: string | null, adminUrl: string | null = null) {
   const rows: Btn[][] = [];
   if (webappUrl) rows.push([{ text: T.BTN_SITE, web_app: { url: siteUrl(webappUrl, "kb") } }]);
   rows.push(
@@ -46,6 +59,7 @@ export function mainMenu(webappUrl: string | null) {
     [{ text: T.BTN_EXAMPLES }, { text: T.BTN_REVIEWS }],
     [{ text: T.BTN_FAQ }, { text: T.BTN_CONTACT }],
   );
+  if (adminUrl) rows.push([{ text: T.BTN_ADMIN_PANEL, web_app: { url: adminUrl } }]);
   return { keyboard: rows, resize_keyboard: true, is_persistent: true, input_field_placeholder: T.INPUT_PLACEHOLDER };
 }
 

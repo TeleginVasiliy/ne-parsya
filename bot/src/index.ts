@@ -141,7 +141,10 @@ async function handle(req: Request): Promise<Response> {
   const url = new URL(req.url);
 
   // Клавиатура главного меню: её сообщение бот держит в чате клиента постоянно
-  screen.setMenuFactory(async () => ({ text: T.MENU_HINT, markup: K.mainMenu(await getWebappUrl(config)) }));
+  screen.setMenuFactory(async (chatId) => {
+    const url = await getWebappUrl(config);
+    return { text: T.MENU_HINT, markup: K.mainMenu(url, config.isAdmin(chatId) ? K.adminPanelUrl(url) : null) };
+  });
 
   try {
     if (url.searchParams.has("setup")) return await setup(req, config);
