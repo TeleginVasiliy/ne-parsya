@@ -257,7 +257,7 @@ async function scenarioMain() {
   await d.send(c1, "Всё супер, спасибо!");
   assert(contains(tg.sentTo(ME), "Отзыв по заказу") && contains(tg.sentTo(OWNER), "Всё супер") && contains(tg.sentTo(OWNER), "Работа: "));
   await d.send(c1, "⭐ Отзывы");
-  assert(tg.lastText(C1).includes("Текст отзыва — замените реальным") && tg.lastText(C1).includes("замените своими"));
+  assert(tg.lastText(C1).includes("Отзывов пока нет") && !tg.lastText(C1).includes("замените"), tg.lastText(C1));
   await d.click(owner, "Опубликовать");
   assert(!tg.findButton(ME, "Опубликовать") && contains(tg.sentTo(ME), "Опубликовал Пётр"));
   await d.send(c1, "⭐ Отзывы");

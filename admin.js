@@ -618,14 +618,18 @@
     if (b.getAttribute('data-rv') === 'delete') {
       if (!confirm('Удалить отзыв «' + r.name + '» навсегда? Он исчезнет и с сайта, и из бота.')) return;
       b.disabled = true;
-      // Отзыв из бота: бот удалит его у себя (и ещё раз на сайте); здесь убираем с сайта сразу
+      // Сначала убираем с сайта, потом просим бота удалить отзыв у себя. Наоборот нельзя: бот успевает
+      // удалить строку сам, и панель получает «0 строк» — раньше это выглядело как «нет прав»
       var o = r.order_code && data.orders.filter(function (x) { return x.code === r.order_code; })[0];
-      (o ? SB.insert('cloud_actions', { order_id: o.id, action: 'review_delete', payload: {} }) : Promise.resolve()).then(function () {
-        return SB.remove('reviews', 'id=eq.' + id);
-      }).then(function (rows) {
-        if (noRights(rows)) return;
+      SB.remove('reviews', 'id=eq.' + id).then(function (rows) {
+        if (!o) return !noRights(rows);
+        return SB.insert('cloud_actions', { order_id: o.id, action: 'review_delete', payload: {} }).then(function () { return true; });
+      }).then(function (done) {
+        if (!done) return;
+        data.reviews = data.reviews.filter(function (x) { return x.id !== id; });
+        renderReviews();
         toast(o ? 'Отзыв удалён с сайта и из бота' : 'Отзыв удалён');
-        loadAll();
+        refreshSoon();
       }, function (err) { toast('Не удалось удалить: ' + explain(err)); }).then(function () { b.disabled = false; });
       return;
     }

@@ -224,11 +224,10 @@ async function pageItems(kind: string): Promise<Item[]> {
   const list = (k: string) => (Array.isArray(content[k]) ? content[k] : []).filter((x: unknown) => x && typeof x === "object");
   if (kind === "ex") return list("examples");
   if (kind === "faq") return list("faq").filter((x: Item) => x.q);
-  // Отзывы: опубликованные из бота; шаблоны — только пока настоящих нет
-  const real = (await db.publishedReviews()).map((r) => ({
+  // Отзывы — только настоящие, опубликованные из бота (шаблоны-примеры не показываем)
+  return (await db.publishedReviews()).map((r) => ({
     name: r.first_name || "Клиент", rating: r.rating, text: r.text || "", work: workSummary({ data: r.order_data ?? {} }),
   }));
-  return real.length ? real : list("reviews");
 }
 
 function pageText(kind: string, item: Item): string {
@@ -250,7 +249,7 @@ export async function showPage(ctx: Ctx, kind: string, index: number, current: t
   const items = await pageItems(kind);
   const chat = ctx.chatId;
   if (!items.length) {
-    await screen.newScreen(chat, T.CONTENT_EMPTY, null, userMsgId);
+    await screen.newScreen(chat, kind === "rv" ? T.REVIEWS_EMPTY : T.CONTENT_EMPTY, null, userMsgId);
     return;
   }
   index = ((index % items.length) + items.length) % items.length;

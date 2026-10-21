@@ -127,6 +127,7 @@ export const T = {
   REVIEWS_TITLE: "⭐ <b>Отзывы</b>",
   FAQ_TITLE: "❓ <b>Вопросы и ответы</b>",
   CONTENT_EMPTY: "Здесь пока пусто — скоро появится 🙂",
+  REVIEWS_EMPTY: "⭐ <b>Отзывы</b>\n\nОтзывов пока нет. Они появятся здесь после первых выполненных заказов 🙂",
   PLACEHOLDER_MARK: "\n\n<i>⚠️ Пример — замените своими</i>",
   OFFER: "💰 <b>Стоимость заказа #{code}</b>\n\nЦена: <b>{price}</b>\nСрок: <b>{deadline}</b>\n{pay_line}\n\nПодходит?",
   OFFER_PAY_FULL: "К оплате: <b>{amount}</b>",
