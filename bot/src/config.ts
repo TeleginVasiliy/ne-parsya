@@ -68,7 +68,8 @@ export function loadConfig(): Config {
   percent = Math.max(1, Math.min(100, percent));
 
   // В поле секрета переносы строк можно писать как \n
-  const details = (Deno.env.get("PAYMENT_DETAILS") ?? "").replace(/\\n/g, "\n").trim();
+  // Перенос строки часто пишут как «\n» или «/n» — оба превращаем в настоящий перенос, лишние «\» убираем
+  const details = (Deno.env.get("PAYMENT_DETAILS") ?? "").replace(/\\n|\/n(?![a-zа-яё])/g, "\n").replace(/\\/g, "").trim();
   const links = (Deno.env.get("PAYMENT_LINKS") ?? "").replace(/\\n/g, "\n").split(/[\n;]+/).map((line) => {
     // «Т-Банк | https://…» или просто ссылка
     const m = /^\s*(.*?)\s*\|\s*(https:\/\/\S+)\s*$/.exec(line) ?? /^\s*()(https:\/\/\S+)\s*$/.exec(line);

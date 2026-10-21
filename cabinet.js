@@ -48,12 +48,8 @@
   // Быстрая оплата: ссылки банков и кнопки «Скопировать» (номер для СБП, карта, сумма)
   function quickPay(due, code) {
     var x = window.__payExtra || {};
-    var out = (x.links || []).map(function (l) {
-      return '<a class="btn btn--primary btn--sm js-ext" href="' + esc(l.url) + '" target="_blank" rel="noopener">💳 Оплатить: ' + esc(l.name) + '</a>';
-    });
-    if (x.phone) out.push('<button type="button" class="btn btn--ghost btn--sm js-copy" data-copy="' + esc(x.phone) + '">📋 Номер для СБП</button>');
+    var out = [];
     if (x.card) out.push('<button type="button" class="btn btn--ghost btn--sm js-copy" data-copy="' + esc(String(x.card).replace(/\s/g, '')) + '">📋 Номер карты</button>');
-    if (x.phone || x.card) out.push('<button type="button" class="btn btn--ghost btn--sm js-copy" data-copy="' + Math.round(due) + '">📋 Сумма</button>');
     if ((x.phone || x.card) && code) out.push('<button type="button" class="btn btn--ghost btn--sm js-copy" data-copy="' + esc(code) + '">📋 Номер заказа</button>');
     return out.length ? '<div class="pay-box__quick">' + out.join('') + '</div>' : '';
   }

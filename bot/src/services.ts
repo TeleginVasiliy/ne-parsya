@@ -298,12 +298,15 @@ export async function sendOffer(config: Config, o: Order): Promise<boolean> {
 /** Реквизиты: текст из PAYMENT_DETAILS плюс номер для СБП и карта (если заданы). */
 export function paymentDetailsText(config: Config): string {
   const parts: string[] = [];
-  if (config.paymentDetails) parts.push(config.paymentDetails);
+  const details = config.paymentDetails;
+  // Номера телефона и карты в реквизитах копируются нажатием (если разметку не задали сами)
+  if (details) parts.push(details.includes("<code>") ? details : details.replace(/\+?\d[\d ()-]{8,}\d/g, (n) => `<code>${n}</code>`));
   const p = config.pay;
-  if (p.phone && !config.paymentDetails.includes(p.phone)) {
+  // Телефон уже есть в реквизитах (хоть через 8, хоть через +7) — второй раз не пишем
+  const inDetails = details.replace(/\D/g, "").includes(p.phone.replace(/\D/g, "").slice(-10));
+  if (p.phone && !inDetails) {
     parts.push(fmt(T.PAY_SBP_LINE, {
-      phone: esc(p.phone), bank: p.bank ? `, банк получателя: <b>${esc(p.bank)}</b>` : "",
-      bank_step: p.bank ? ` и выберите банк получателя — <b>${esc(p.bank)}</b>` : " и выберите банк получателя",
+      phone: esc(p.phone), bank: p.bank ? `\nБанк получателя: <b>${esc(p.bank)}</b>` : "",
     }));
   }
   if (p.card && !config.paymentDetails.replace(/\s/g, "").includes(p.card.replace(/\s/g, ""))) {

@@ -82,18 +82,17 @@ try {
   assert(tg.sentTo(OWNER).at(-1)!.includes("цена 2500 ₽, срок 3 дня") && tg.sentTo(OWNER).at(-1)!.includes("сообщение"));
   ok("«Отправить всё сразу»: сообщение, цена и срок приходят клиенту одним экраном с кнопками");
 
-  // --- оплата: СБП по номеру, карта, ссылка банка, кнопки «Скопировать»
+  // --- оплата: номер для СБП и карта в тексте, кнопки «Скопировать» только для карты и номера заказа
   await d.click(c, "Согласен");
   const pay = tg.lastText(C1);
-  assert(pay.includes("<code>+79991234567</code>") && pay.includes("Т-Банк") && pay.includes("<code>2200 1234 5678 9010</code>"), pay);
+  assert(pay.includes("<code>+79991234567</code>") && pay.includes("Банк получателя: <b>Т-Банк</b>") && pay.includes("<code>2200 1234 5678 9010</code>"), pay);
+  assert(!pay.includes("Как оплатить"), pay);
   const msg = [...tg.msgs.values()].filter((m) => m.chat === C1 && !m.deleted).pop()!;
   const buttons = msg.markup!.inline_keyboard.flat();
-  assert(buttons.some((b: any) => b.url === "https://www.tbank.ru/rm/test.user1/abc" && b.text.includes("Т-Банк")));
-  assert(buttons.some((b: any) => b.copy_text?.text === "+79991234567") && buttons.some((b: any) => b.copy_text?.text === "2200123456789010"));
-  assert(buttons.some((b: any) => b.copy_text?.text === "2500"));
-  // Подсказка по шагам и кнопка «Номер заказа» для комментария к переводу
-  assert(pay.includes("Как оплатить") && pay.includes("банк получателя — <b>Т-Банк</b>") && buttons.some((b: any) => b.copy_text?.text === "K1K1"), pay);
-  ok("оплата: номер для СБП и карта с кнопками «Скопировать», сумма, кнопка «Оплатить: Т-Банк»");
+  assert(!buttons.some((b: any) => b.url), "нет кнопок банков");
+  assert(!buttons.some((b: any) => b.copy_text?.text === "+79991234567" || b.copy_text?.text === "2500"), "нет кнопок СБП и суммы");
+  assert(buttons.some((b: any) => b.copy_text?.text === "2200123456789010") && buttons.some((b: any) => b.copy_text?.text === "K1K1"));
+  ok("оплата: номер и банк получателя в тексте, кнопки только «Номер карты» и «Номер заказа»");
 
   await handler(new Request(`http://x/bot?cron=${(await sha256Hex(`cron:${TOKEN}`)).slice(0, 40)}`));
   const extra = JSON.parse((await db.q("select value from site_settings where key = 'payment_extra'"))[0].value);
