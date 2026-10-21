@@ -9,7 +9,7 @@ import type { Config } from "./config.ts";
 import * as db from "./db.ts";
 import * as K from "./kb.ts";
 import { amountDue, applyMenuButton, cabinetLink, getWebappUrl, setupCommands, statusLabel, typeName } from "./services.ts";
-import { acceptSignedOrder, checkInitData, checkStorage, pushChanged, pushSettings } from "./cloud.ts";
+import { acceptSignedOrder, checkInitData, checkStorage, pushChanged, pushReviews, pushSettings } from "./cloud.ts";
 import * as screen from "./screen.ts";
 import { runJobs } from "./jobs.ts";
 import { handleUpdate } from "./router.ts";
@@ -113,6 +113,10 @@ async function setup(req: Request, config: Config): Promise<Response> {
       "добавьте секрет STORAGE_KEY с этим ключом и откройте эту страницу ещё раз."
     : "✅ Хранилище файлов работает: чеки и файлы клиентов попадают в админ-панель.");
   await pushSettings(config).catch(() => {});
+  const reviewsError = await pushReviews();
+  report.push(reviewsError
+    ? `⚠️ Отзывы не попадают на сайт (${reviewsError.slice(0, 200)}). Выполните заново supabase-setup.sql в Supabase → SQL Editor и откройте эту страницу ещё раз.`
+    : "✅ Опубликованные отзывы выложены на сайт.");
   if (config.setupMode) report.push("⚙️ Режим настройки: напишите боту /id и добавьте секреты ADMIN_IDS и OWNER_ID.");
   else report.push(`👥 Админов: ${config.adminIds.length}. Владелец: ${config.ownerId}.`);
   return text(report.join("\n\n"));

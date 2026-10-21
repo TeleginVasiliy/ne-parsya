@@ -598,7 +598,7 @@
         '<div class="p-row"><b>' + '★'.repeat(r.rating) + '<span class="rv-off">' + '★'.repeat(5 - r.rating) + '</span></b>' +
         '<span class="p-muted">' + dt(r.created_at) + (r.approved ? '' : ' · скрыт с сайта') + '</span></div>' +
         '<div><b>' + esc(r.name) + '</b>' + (who ? ' <span class="p-muted">' + who + '</span>' : '') + '</div>' +
-        '<p class="rv-text">' + esc(r.message) + '</p>' +
+        (r.message ? '<p class="rv-text">' + esc(r.message) + '</p>' : '<p class="p-muted">Только оценка, без текста</p>') +
         '<div class="p-row"><button type="button" class="btn btn--ghost btn--sm" data-rv="toggle">' +
         (r.approved ? '🙈 Скрыть' : '👁 Показать на сайте') + '</button>' +
         '<button type="button" class="btn btn--ghost btn--sm rv-del" data-rv="delete">🗑 Удалить</button></div></article>';
@@ -616,13 +616,17 @@
     var r = data.reviews.filter(function (x) { return x.id === id; })[0];
     if (!r) return;
     if (b.getAttribute('data-rv') === 'delete') {
-      if (!confirm('Удалить отзыв «' + r.name + '» навсегда?')) return;
+      if (!confirm('Удалить отзыв «' + r.name + '» навсегда? Он исчезнет и с сайта, и из бота.')) return;
       b.disabled = true;
-      SB.remove('reviews', 'id=eq.' + id).then(function (rows) {
+      // Отзыв из бота: бот удалит его у себя (и ещё раз на сайте); здесь убираем с сайта сразу
+      var o = r.order_code && data.orders.filter(function (x) { return x.code === r.order_code; })[0];
+      (o ? SB.insert('cloud_actions', { order_id: o.id, action: 'review_delete', payload: {} }) : Promise.resolve()).then(function () {
+        return SB.remove('reviews', 'id=eq.' + id);
+      }).then(function (rows) {
         if (noRights(rows)) return;
-        toast('Отзыв удалён');
+        toast(o ? 'Отзыв удалён с сайта и из бота' : 'Отзыв удалён');
         loadAll();
-      }, function (err) { toast('Не удалось удалить: ' + err.message); }).then(function () { b.disabled = false; });
+      }, function (err) { toast('Не удалось удалить: ' + explain(err)); }).then(function () { b.disabled = false; });
       return;
     }
     b.disabled = true;

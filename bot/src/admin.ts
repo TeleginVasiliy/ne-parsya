@@ -264,7 +264,8 @@ export async function cbPublish(ctx: Ctx, reviewId: number) {
   await ctx.answer(T.REVIEW_PUBLISHED);
   const r = (await db.getReview(reviewId))!;
   const o = (await db.getOrder(r.order_id))!;
-  await pushReviews(); // и на сайт
+  const siteError = await pushReviews(); // и на сайт
+  if (siteError) await ctx.reply(fmt(T.REVIEW_SITE_FAILED, { error: esc(siteError.slice(0, 300)) }));
   const text = reviewCardText(o, await clientText(r.user_id), r.rating, r.text) +
     fmt(T.REVIEW_PUBLISHED_MARK, { name: await adminName(ctx.uid) });
   await Promise.all((await db.getCards("review", reviewId)).map((c) => tg.editText(c.chat_id, c.message_id, text)));

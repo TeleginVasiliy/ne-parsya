@@ -161,21 +161,21 @@ async function pushOrder(o: Order) {
        lines = excluded.lines, updated_at = excluded.updated_at`, [o.id, token, typeName]);
 }
 
-/** Опубликованные отзывы — на сайт, с подписью «что было сделано». Удалённый в панели отзыв обратно не вернётся. */
-export async function pushReviews(): Promise<number> {
-  let pushed = 0;
+/** Опубликованные отзывы — на сайт, с подписью «что было сделано». Удалённый в панели отзыв обратно не вернётся.
+ *  Возвращает текст ошибки (или null) — его видно админу при публикации и на странице ?setup=1. */
+export async function pushReviews(): Promise<string | null> {
   try {
-    for (const r of await db.reviewsForSite()) {
-      await db.putSiteReview(r, workSummary({ data: r.data ?? {} }));
-      pushed++;
-    }
+    for (const r of await db.reviewsForSite()) await db.putSiteReview(r, workSummary({ data: r.data ?? {} }));
+    return null;
   } catch (e) {
-    log(`Отзывы не выгрузились на сайт (выполнен ли свежий supabase-setup.sql?): ${(e as Error).message}`);
+    const error = (e as Error).message;
+    log(`Отзывы не выгрузились на сайт: ${error}`);
+    return error;
   }
-  return pushed;
 }
 
 export async function pushChanged(): Promise<number> {
+  await pushReviews(); // заодно — опубликованные отзывы, которых ещё нет на сайте
   let pushed = 0;
   for (const o of await db.ordersToSync()) {
     try {
@@ -290,6 +290,15 @@ export async function applyActions(config: Config): Promise<number> {
         await Promise.all(cards.map((c) => tg.deleteMessage(c.chat_id, c.message_id)));
         await db.exec("update cloud_actions set state = 'done', result = 'заказ удалён' where id = $1", [row.id]);
         continue;
+      } else if (row.action === "review_delete") {
+        const reviewId = await db.deleteReview(o.id, o.code);
+        if (reviewId) {
+          const mark = fmt(T.REVIEW_DELETED_MARK, { who });
+          await Promise.all((await db.getCards("review", reviewId)).map((c) => tg.call("editMessageText", {
+            chat_id: c.chat_id, message_id: c.message_id, text: mark, parse_mode: "HTML",
+          })));
+          await db.exec("delete from bot_cards where kind = 'review' and ref_id = $1", [reviewId]);
+        }
       } else if (row.action === "message") {
         const text = String(payload.text ?? "").trim().slice(0, 3500);
         if (!text) throw new Error("пустое сообщение");
@@ -448,6 +457,5 @@ export async function syncOnce(config: Config) {
     }
   }
   stats.pushed = await pushChanged();
-  await pushReviews();
   return stats;
 }

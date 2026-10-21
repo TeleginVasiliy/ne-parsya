@@ -410,7 +410,7 @@
         return '<article class="review card" aria-roledescription="отзыв" aria-label="Отзыв ' + (i + 1) + ' из ' + list.length + '">' +
           '<div class="review__head"><div class="review__stars" aria-label="Оценка ' + rating + ' из 5">' + stars + '</div>' +
           (date ? '<span class="review__date">' + esc(date) + '</span>' : '') + '</div>' +
-          '<p class="review__text">' + esc(r.message || '') + '</p>' +
+          (r.message ? '<p class="review__text">' + esc(r.message) + '</p>' : '<p class="review__text review__text--none"></p>') +
           '<div class="review__who"><span class="review__avatar" aria-hidden="true">' + esc(initial) + '</span>' +
           '<div><div class="review__name">' + esc(r.name || '') + '</div><div class="review__meta">' + meta + '</div></div></div></article>';
       }).join('');

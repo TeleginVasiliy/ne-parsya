@@ -670,6 +670,7 @@ body.summary-on .summary { transform: none; }
 .review__stars .off { color: var(--border-strong); }
 .review__text { font-size: 15px; color: var(--text); flex: 1; }
 .review__text::before { content: '«'; } .review__text::after { content: '»'; }
+.review__text--none::before, .review__text--none::after { content: none; } /* оценка без текста */
 .review__who { display: flex; align-items: center; gap: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
 .review__avatar { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; color: var(--lav-ink); background: var(--lav); flex: none; }
 .review__name { font-weight: 800; font-size: 15px; }
