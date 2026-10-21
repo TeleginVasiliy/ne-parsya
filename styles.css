@@ -853,9 +853,8 @@ body.summary-open .fab { transform: scale(0); }
 
   .how { grid-template-columns: repeat(4, 1fr); }
   .works { grid-template-columns: repeat(4, 1fr); }
-  .perks { grid-template-columns: repeat(6, 1fr); }
-  .perk { grid-column: span 2; grid-template-columns: 1fr; }
-  .perk:nth-child(4) { grid-column: 2 / span 2; }
+  .perks { grid-template-columns: repeat(4, 1fr); }
+  .perk { grid-template-columns: 1fr; }
   .perk__icon { grid-row: auto; margin-bottom: 10px; }
   .carousel__track { grid-auto-columns: calc((100% - 24px) / 3); }
   .toasts { bottom: 96px; }

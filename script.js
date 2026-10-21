@@ -123,6 +123,7 @@
     presentation: '<path d="M2 3h20M4 3v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3M12 16v5M8 21h8"/><path d="m8 11 3-3 2 2 3-3"/>',
     drawings: '<path d="M3 21h18"/><path d="M5 21 12 4l7 17"/><path d="M8.5 13.5h7"/><circle cx="12" cy="4" r="1.5"/>',
     tasks: '<path d="M18 7V4H6l6 8-6 8h12v-3"/>',
+    article: '<path d="M4 22h14a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v4"/><path d="M14 2v5h5"/><path d="M3 15h6M3 19h6M6 12v10"/>',
     other: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/>',
     arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
     image: '<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/>'
@@ -144,7 +145,8 @@
     { id: 'presentation', name: 'Презентация', short: 'Презентация', desc: 'Слайды в нужном стиле, инфографика и текст выступления.', volume: 'slides', design: 'pres', tone: 'blue' },
     { id: 'drawings', name: 'Чертежи', short: 'Чертежи', desc: 'Чертежи и схемы по ЕСКД — в программе или от руки.', volume: 'sheets', design: 'draw', tone: 'lav' },
     { id: 'tasks', name: 'Решение задач', short: 'Решение задач', desc: 'Математика, физика, экономика и другие дисциплины.', volume: 'tasks', design: 'optional', tone: 'mint' },
-    { id: 'other', name: 'Другое', short: 'Другое', desc: 'Не нашли своё? Опишите задачу — разберёмся.', volume: 'free', design: 'none', tone: 'peach' }
+    { id: 'article', name: 'Научная статья', short: 'Статья', desc: 'Статьи для журналов и конференций: структура, оформление, список литературы.', volume: 'pages', design: 'text', tone: 'peach' },
+    { id: 'other', name: 'Другое', short: 'Другое', desc: 'Не нашли своё? Опишите задачу — разберёмся.', volume: 'free', design: 'none', tone: 'blue' }
   ];
   function typeById(id) { for (var i = 0; i < WORK_TYPES.length; i++) if (WORK_TYPES[i].id === id) return WORK_TYPES[i]; return null; }
 

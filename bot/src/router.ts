@@ -47,7 +47,8 @@ function command(m: Msg): { name: string; args: string } | null {
 }
 
 const MENU_TEXT: Record<string, string> = {
-  [T.BTN_SITE]: "site", [T.BTN_ORDER]: "new", [T.BTN_MY]: "my", [T.BTN_CONTACT]: "contact",
+  [T.BTN_SITE]: "site", "🌐 Сайт": "site", // старая надпись — у клиентов ещё может быть прежняя клавиатура
+  [T.BTN_ORDER]: "new", [T.BTN_MY]: "my", [T.BTN_CONTACT]: "contact",
   [T.BTN_EXAMPLES]: "examples", [T.BTN_REVIEWS]: "reviews", [T.BTN_FAQ]: "faq",
 };
 
