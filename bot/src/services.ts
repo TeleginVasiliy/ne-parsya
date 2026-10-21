@@ -302,8 +302,7 @@ export function paymentDetailsText(config: Config): string {
   const p = config.pay;
   if (p.phone && !config.paymentDetails.includes(p.phone)) {
     parts.push(fmt(T.PAY_SBP_LINE, {
-      phone: esc(p.phone), bank: p.bank ? `, банк получателя: <b>${esc(p.bank)}</b>` : "",
-      bank_step: p.bank ? ` и выберите банк получателя — <b>${esc(p.bank)}</b>` : " и выберите банк получателя",
+      phone: esc(p.phone), bank: p.bank ? `\nБанк получателя: <b>${esc(p.bank)}</b>` : "",
     }));
   }
   if (p.card && !config.paymentDetails.replace(/\s/g, "").includes(p.card.replace(/\s/g, ""))) {
