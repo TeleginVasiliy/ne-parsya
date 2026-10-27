@@ -249,6 +249,24 @@ drop policy if exists "incoming_orders: insert" on public.incoming_orders;
 create policy "incoming_orders: insert" on public.incoming_orders
   for insert to anon, authenticated with check (state = 'pending');
 
+-- Переписка по заказу (клиент ↔ исполнитель) — её видно в админ-панели. Пишет только бот.
+create table if not exists public.cloud_messages (
+  id          bigint generated always as identity primary key,
+  order_id    bigint not null,
+  author      text not null check (author in ('client', 'admin')),
+  name        text,
+  text        text,
+  files       jsonb not null default '[]'::jsonb,
+  created_at  timestamptz not null default now()
+);
+create index if not exists cloud_messages_order on public.cloud_messages (order_id, id);
+alter table public.cloud_messages enable row level security;
+drop policy if exists "cloud_messages: admins read" on public.cloud_messages;
+create policy "cloud_messages: admins read" on public.cloud_messages
+  for select to authenticated using (public.is_panel_admin());
+grant select on public.cloud_messages to authenticated;
+grant all on public.cloud_messages to service_role;
+
 create table if not exists public.site_settings (key text primary key, value text);
 alter table public.site_settings enable row level security;
 
@@ -292,6 +310,11 @@ create policy "results: admins upload" on storage.objects
 drop policy if exists "private: admins read" on storage.objects;
 create policy "private: admins read" on storage.objects
   for select to authenticated using (bucket_id = 'private' and public.is_panel_admin());
+-- Методичка с сайта: посетитель может только загрузить файл в папку site-uploads (смотреть и
+-- перезаписывать чужие файлы нельзя), бот прикрепляет его к заказу
+drop policy if exists "private: site uploads" on storage.objects;
+create policy "private: site uploads" on storage.objects
+  for insert to anon, authenticated with check (bucket_id = 'private' and name like 'site-uploads/%');
 
 
 -- =========================================================================

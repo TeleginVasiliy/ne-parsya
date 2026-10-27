@@ -287,6 +287,10 @@ html.theme-anim *, html.theme-anim *::before, html.theme-anim *::after {
   display: inline-flex; align-items: center; gap: 6px;
 }
 .hero__chips li::before { content: '✓'; color: var(--mint-ink); font-weight: 800; }
+.soon-banner {
+  margin-top: 14px; display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 14px;
+  background: var(--peach); color: var(--peach-ink); font-size: 14px; font-weight: 700;
+}
 
 .hero__visual { position: relative; max-width: 380px; width: 100%; margin: 0 auto; padding: 18px 8px 26px; }
 .mock {
@@ -347,6 +351,14 @@ html.theme-anim *, html.theme-anim *::before, html.theme-anim *::after {
 .service__price::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.6; }
 .service__go { position: absolute; top: 14px; right: 14px; width: 18px; height: 18px; color: var(--text-3); opacity: 0; transform: translateX(-4px); transition: 0.25s var(--ease); }
 .service:hover .service__go { opacity: 1; transform: none; }
+/* «Скоро»: услуга видна, но выбрать её пока нельзя */
+.soon-badge { display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 800;
+  background: var(--peach); color: var(--peach-ink); vertical-align: middle; }
+.service.is-soon, .type-card.is-soon { cursor: not-allowed; }
+.service.is-soon:hover { transform: none; box-shadow: var(--shadow-sm); border-color: var(--border); }
+.service.is-soon .service__icon, .service.is-soon .service__desc, .service.is-soon .service__price { opacity: 0.55; }
+.service.is-soon .service__go { display: none; }
+.type-card.is-soon .type-card__inner { opacity: 0.55; }
 
 /* Цвета иконок по кругу */
 .tone-lav { background: var(--lav); color: var(--lav-ink); }
@@ -511,6 +523,23 @@ input:focus-visible + .pfont__inner, input:focus-visible + .extra-card__inner, .
 /* Подсказки */
 .hint-box { margin-top: 12px; display: flex; gap: 10px; padding: 12px 14px; border-radius: 14px; background: var(--mint); color: var(--text); font-size: 14px; animation: step-in 0.35s var(--ease); }
 .hint-box--soft { background: var(--accent-soft); }
+/* Загрузка методички */
+.upload { margin-top: 12px; display: grid; gap: 8px; }
+.upload__drop { position: relative; display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 14px; cursor: pointer;
+  border: 1.5px dashed var(--border-strong); background: var(--surface); transition: border-color 0.2s, background 0.2s; }
+.upload__drop:hover { border-color: var(--accent); background: var(--accent-soft); }
+.upload__drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.upload__drop:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.upload__icon { font-size: 22px; }
+.upload__drop b { display: block; font-size: 14.5px; }
+.upload__drop small { display: block; font-size: 12.5px; color: var(--text-2); }
+.upload__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.upload__list li { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px; background: var(--surface);
+  border: 1px solid var(--border); font-size: 13.5px; min-width: 0; }
+.upload__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.upload__state { font-size: 12px; color: var(--text-2); white-space: nowrap; }
+.upload__state[data-s="error"] { color: #d13c3c; }
+.upload__del { border: 0; background: none; color: var(--text-3); font-size: 16px; cursor: pointer; padding: 2px 6px; }
 
 /* Переключатель */
 .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; font-size: 14px; font-weight: 600; }
@@ -722,6 +751,7 @@ body.summary-on .summary { transform: none; }
 .footer { padding: 32px 0 calc(96px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); }
 .footer__inner { display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; }
 .footer__copy { font-size: 13px; color: var(--text-3); }
+.footer__note { font-size: 11.5px; color: var(--text-3); max-width: 420px; }
 
 /* ---------- Плавающая кнопка Telegram ---------- */
 .fab {

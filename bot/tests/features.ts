@@ -54,8 +54,10 @@ try {
   await d.click(c, "10");
   await d.click(c, "Неделя");
   await d.click(c, "70%");
-  assert(!tg.lastText(C1).includes("системе") && tg.lastText(C1).includes("Оформление"), tg.lastText(C1));
-  ok("анкета: после оригинальности сразу оформление — систему антиплагиата не спрашивает");
+  assert(!tg.lastText(C1).includes("системе") && tg.lastText(C1).includes("процент ИИ"), tg.lastText(C1));
+  await d.click(c, "до 10%");
+  assert(tg.lastText(C1).includes("Оформление"), tg.lastText(C1));
+  ok("анкета: после оригинальности — процент ИИ, затем оформление; систему антиплагиата не спрашивает");
   await d.send(c, "📦 Мои заказы"); // бросаем анкету
 
   // --- активный заказ на сайте (по подписи Telegram)

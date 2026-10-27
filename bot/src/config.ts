@@ -26,6 +26,29 @@ export interface PayOptions {
 
 export class ConfigError extends Error {}
 
+// ---------- хранилище Supabase (файлы) ----------
+export const storageUrl = () => (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/+$/, "");
+export function storageKey(): string {
+  // STORAGE_KEY — свой секрет с ключом Secret (sb_secret_…), если встроенный ключ Supabase не подходит
+  const k = Deno.env.get("STORAGE_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SECRET_KEY") || "";
+  if (k) return k;
+  try { // новые проекты: SUPABASE_SECRET_KEYS = {"default": "sb_secret_…"}
+    return Object.values(JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") || "{}"))[0] as string || "";
+  } catch {
+    return "";
+  }
+}
+/** Адрес закрытого файла в хранилище: бот скачивает его со своим ключом (см. storageHeaders). */
+export const privateFileUrl = (path: string) =>
+  `${storageUrl()}/storage/v1/object/authenticated/private/${path.split("/").map(encodeURIComponent).join("/")}`;
+/** Заголовки для закрытых файлов хранилища (методички, загруженные с сайта). */
+export function storageHeaders(): Record<string, string> {
+  const key = storageKey();
+  const h: Record<string, string> = { apikey: key };
+  if (key.startsWith("eyJ")) h.Authorization = `Bearer ${key}`;
+  return h;
+}
+
 function env(name: string): string {
   return (Deno.env.get(name) ?? "").trim();
 }

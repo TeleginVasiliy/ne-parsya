@@ -247,6 +247,7 @@ export async function deleteOrder(orderId: number): Promise<{ chat_id: number; m
     await exec(`delete from ${table} where order_id = $1`, [orderId]);
   }
   await exec("delete from cloud_orders where id = $1", [orderId]);
+  await exec("delete from cloud_messages where order_id = $1", [orderId]).catch(() => 0); // переписка (если база уже обновлена)
   await exec("delete from reviews where order_code = $1", [o.code]).catch(() => 0); // отзыв на сайте (если база уже обновлена)
   await exec("delete from bot_orders where id = $1", [orderId]);
   return cards;
@@ -290,11 +291,34 @@ export interface FileRef {
   mime?: string;
 }
 
-export async function addFile(orderId: number, kind: string, f: FileRef, cloudPath: string | null = null, cloudId: string | null = null) {
-  await exec(
+export async function addFile(orderId: number, kind: string, f: FileRef, cloudPath: string | null = null, cloudId: string | null = null): Promise<number> {
+  const row = await one<{ id: number }>(
     `insert into bot_files(order_id, kind, file_id, file_type, file_name, cloud_path, cloud_id)
-     values($1, $2, $3, $4, $5, $6, $7)`, [orderId, kind, f.file_id, f.type, f.name ?? null, cloudPath, cloudId]);
+     values($1, $2, $3, $4, $5, $6, $7) returning id`, [orderId, kind, f.file_id, f.type, f.name ?? null, cloudPath, cloudId]);
   await touchOrder(orderId); // → синхронизация с сайтом
+  return row!.id;
+}
+
+/** Файл, загруженный клиентом на сайте (методичка): виден в админ-панели и уходит админам в Telegram. */
+export async function addSiteClientFile(orderId: number, url: string, path: string, name: string, size: number | null) {
+  const cloudId = `site-${orderId}-${path.split("/").slice(-2).join("-")}`.slice(0, 120);
+  await exec(
+    `insert into cloud_files(id, order_id, kind, name, bucket, path, size, source, delivered)
+     values($1, $2, 'client', $3, 'private', $4, $5, 'site', true) on conflict (id) do nothing`,
+    [cloudId, orderId, name, path, size]);
+  return await addFile(orderId, "client", { file_id: url, type: "document", name }, path, cloudId);
+}
+
+/** Файл заказа на сайте: то, что уже лежит в облаке, — под своим id, остальное выгрузится как bot-<id>. */
+export const cloudFileId = (f: Row) => f.cloud_id || `bot-${f.id}`;
+
+/** Переписка по заказу для админ-панели: кто, что написал и какие файлы (id из cloud_files).
+ *  До обновления базы (нет таблицы cloud_messages) просто ничего не пишем. */
+export async function logMessage(orderId: number, author: "client" | "admin", name: string | null, text: string | null,
+  files: { id: string; name: string | null }[] = []) {
+  if (!text && !files.length) return;
+  await exec("insert into cloud_messages(order_id, author, name, text, files) values($1, $2, $3, $4, $5::text::jsonb)",
+    [orderId, author, name, text ? text.slice(0, 4000) : null, JSON.stringify(files)]).catch(() => 0);
 }
 
 export async function getFiles(orderId: number, kind: string): Promise<Row[]> {

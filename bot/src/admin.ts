@@ -6,7 +6,7 @@ import type { Order } from "./db.ts";
 import * as K from "./kb.ts";
 import {
   adminName, adminUrl, markAccepted, applyMenuButton, isDashboardUrl, normalizeSiteUrl, resetUrlCache, changeStatus, deadlineLabel, deliverResult, getWebappUrl, notifyClient, prepayAmount,
-  refreshOrderCards, sendAdminCard, sendAdminMessageToClient, sendOffer, sendOrderFiles, sendPaymentInstructions, statusLabel,
+  logResultFiles, refreshOrderCards, sendAdminCard, sendAdminMessageToClient, sendOffer, sendOrderFiles, sendPaymentInstructions, statusLabel,
 } from "./services.ts";
 import { reviewCardText } from "./client.ts";
 import { clientText } from "./services.ts";
@@ -215,8 +215,11 @@ async function resultDone(ctx: Ctx) {
   await ctx.answer();
   await tg.editMarkup(ctx.chatId, ctx.cbMsg.message_id, null);
   let o = (await db.getOrder(order_id))!;
-  await db.deleteFiles(o.id, "result");
-  for (const f of files) await db.addFile(o.id, "result", f);
+  // Новые файлы добавляются к прошлым: вся история работы остаётся у клиента и в админ-панели
+  const ids: number[] = [];
+  for (const f of files) ids.push(await db.addFile(o.id, "result", f));
+  const added = (await db.getFiles(o.id, "result")).filter((f) => ids.includes(f.id));
+  await logResultFiles(o, added, (await db.getUser(ctx.uid))?.first_name ?? null);
   const remaining = Math.max(0, (o.price || 0) - o.paid);
   if (remaining > 0) {
     // Предоплата была неполной — сначала доплата, потом файлы
@@ -226,7 +229,7 @@ async function resultDone(ctx: Ctx) {
     await ctx.reply(fmt(T.RESULT_WAITS_PAYMENT, { amount: money(remaining) }));
     return;
   }
-  if (await deliverResult(ctx.config, o.id)) await ctx.reply(fmt(T.RESULT_SENT, { code: o.code }));
+  if (await deliverResult(ctx.config, o.id, added)) await ctx.reply(fmt(T.RESULT_SENT, { code: o.code }));
 }
 
 // ---------- передать ----------

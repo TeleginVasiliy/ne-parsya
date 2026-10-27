@@ -74,6 +74,14 @@ try {
   assert(tg.visible(C1).length === 1 && tg.visible(C1)[0].includes("заказ") && !tg.findButton(C1, "Назад"), JSON.stringify(tg.visible(C1)));
   ok("«⏮ В начало» возвращает к первому экрану одним нажатием");
 
+  // --- ВКР пока «скоро»: кнопка видна, но не выбирается
+  await d.send(c, "📝 Оформить заказ");
+  assert(tg.findButton(C1, "ВКР / диплом (скоро)"));
+  await d.click(c, "ВКР / диплом (скоро)");
+  assert(tg.answers.some((t) => t.includes("скоро")) && tg.lastText(C1).includes("Какую работу"), tg.lastText(C1));
+  await d.send(c, "📦 Мои заказы"); // бросаем анкету
+  ok("ВКР / диплом в боте — с пометкой «скоро», выбрать пока нельзя");
+
   // --- повторный заказ с сайта: тот же номер заявки, другое содержимое — новый заказ
   await d.webapp(c, { kind: "np_order", id: "R1R1", type: "essay", lines: [["📝", "Работа", "Эссе"]] });
   await d.webapp(c, { kind: "np_order", id: "R1R1", type: "essay", lines: [["📝", "Работа", "Эссе"]] }); // двойное нажатие

@@ -139,10 +139,10 @@
     { id: 'referat', name: 'Реферат', short: 'Реферат', desc: 'Обзор источников по теме с грамотной структурой.', volume: 'pages', design: 'text', tone: 'peach' },
     { id: 'essay', name: 'Эссе', short: 'Эссе', desc: 'Авторский текст с аргументацией — на русском или английском.', volume: 'pages', design: 'text', tone: 'blue' },
     { id: 'coursework', name: 'Курсовая работа', short: 'Курсовая', desc: 'Теория, практическая часть, расчёты и литература.', volume: 'pages', design: 'text', tone: 'lav' },
-    { id: 'diploma', name: 'ВКР / диплом', short: 'ВКР / диплом', desc: 'Выпускная работа под ключ: от плана до речи на защиту.', volume: 'pages', design: 'text', tone: 'mint' },
+    { id: 'diploma', name: 'ВКР / диплом', short: 'ВКР / диплом', desc: 'Выпускная работа под ключ: от плана до речи на защиту.', volume: 'pages', design: 'text', tone: 'mint', soon: true },
     { id: 'practice', name: 'Отчёт по практике', short: 'Отчёт по практике', desc: 'Отчёт, дневник и характеристика по программе практики.', volume: 'pages', design: 'text', tone: 'peach' },
     { id: 'presentation', name: 'Презентация', short: 'Презентация', desc: 'Слайды в нужном стиле, инфографика и текст выступления.', volume: 'slides', design: 'pres', tone: 'blue' },
-    { id: 'drawings', name: 'Чертежи', short: 'Чертежи', desc: 'Чертежи и схемы по ЕСКД — в программе или от руки.', volume: 'sheets', design: 'draw', tone: 'lav' },
+    { id: 'drawings', name: 'Чертежи', short: 'Чертежи', desc: 'Чертежи и схемы по ЕСКД в нужной программе.', volume: 'sheets', design: 'draw', tone: 'lav' },
     { id: 'tasks', name: 'Решение задач', short: 'Решение задач', desc: 'Математика, физика, экономика и другие дисциплины.', volume: 'tasks', design: 'optional', tone: 'mint' },
     { id: 'article', name: 'Научная статья', short: 'Статья', desc: 'Статьи для журналов и конференций: структура, оформление, список литературы.', volume: 'pages', design: 'text', tone: 'peach' },
     { id: 'other', name: 'Другое', short: 'Другое', desc: 'Не нашли своё? Опишите задачу — разберёмся.', volume: 'free', design: 'none', tone: 'blue' }
@@ -317,6 +317,14 @@
 
   function renderServices() {
     $('#servicesGrid').innerHTML = WORK_TYPES.map(function (t) {
+      // «Скоро» — услуга видна, но кнопка неактивна
+      if (t.soon) {
+        return '<button type="button" class="service reveal is-soon" disabled aria-label="' + esc(t.name) + ' — скоро">' +
+          '<span class="service__icon tone-' + t.tone + '">' + svg(t.id) + '</span>' +
+          '<span class="service__title">' + esc(t.name) + '<span class="soon-badge">скоро</span></span>' +
+          '<span class="service__desc">' + esc(t.desc) + '</span>' +
+          '<span class="service__price">Скоро начнём принимать</span></button>';
+      }
       return '<button type="button" class="service reveal" data-type="' + t.id + '" data-sound="pop" aria-label="' + esc(t.name) + ' — выбрать в конструкторе">' +
         '<span class="service__icon tone-' + t.tone + '">' + svg(t.id) + '</span>' +
         '<span class="service__title">' + esc(t.name) + '</span>' +
@@ -329,9 +337,9 @@
 
   function renderTypeGrid() {
     $('#typeGrid').innerHTML = WORK_TYPES.map(function (t) {
-      return '<label class="type-card"><input type="radio" name="type" value="' + t.id + '">' +
+      return '<label class="type-card' + (t.soon ? ' is-soon' : '') + '"><input type="radio" name="type" value="' + t.id + '"' + (t.soon ? ' disabled' : '') + '>' +
         '<span class="type-card__inner"><span class="type-card__icon tone-' + t.tone + '">' + svg(t.id) + '</span>' +
-        '<span class="type-card__name">' + esc(t.name) + '</span></span></label>';
+        '<span class="type-card__name">' + esc(t.name) + (t.soon ? '<span class="soon-badge">скоро</span>' : '') + '</span></span></label>';
     }).join('');
   }
 
@@ -639,7 +647,7 @@
       if (!el.name || !(el.name in d)) return;
       var v = d[el.name];
       if (el.type === 'checkbox') el.checked = Array.isArray(v) && v.indexOf(el.value) !== -1;
-      else if (el.type === 'radio') el.checked = v === el.value;
+      else if (el.type === 'radio') el.checked = v === el.value && !el.disabled; // «скоро» из старого черновика не выбираем
       else el.value = v == null ? '' : v;
     });
   }
@@ -703,8 +711,9 @@
     out.textContent = origOff ? 'не нужна' : (touched ? range.value + '%' : 'не выбрано');
     out.classList.toggle('is-set', touched && !origOff);
 
-    // Методичка
-    $('#manualHint').hidden = d.manual !== 'yes';
+    // Методичка: с базой — загрузка прямо здесь, без неё — подсказка прислать файл в чат
+    $('#manualHint').hidden = d.manual !== 'yes' || LIVE;
+    $('#manualUpload').hidden = d.manual !== 'yes' || !LIVE;
 
     // Шаг 3: какой блок показать
     var mode = designMode(t, d);
@@ -828,7 +837,7 @@
 
   function selectType(id) {
     var input = form.querySelector('input[name="type"][value="' + id + '"]');
-    if (!input) return;
+    if (!input || input.disabled) return;
     input.checked = true;
     syncUI();
     saveDraft();
@@ -981,7 +990,13 @@
     if (origDisabled(d)) add('🔍', 'Оригинальность', 'проверка не нужна', 2);
     else if (d.orig_touched) add('🔍', 'Оригинальность', d.originality + '%', 2);
 
-    if (d.manual === 'yes') add('📎', 'Методичка', 'есть, пришлю файлом в чат', 2);
+    if (d.ai === 'any') add('🤖', 'Процент ИИ', 'не важно', 2);
+    else if (d.ai === '0') add('🤖', 'Процент ИИ', '0% — без ИИ', 2);
+    else if (d.ai) add('🤖', 'Процент ИИ', 'не более ' + d.ai + '%', 2);
+
+    var attached = d.manual === 'yes' ? uploadedFiles() : [];
+    if (attached.length) add('📎', 'Методичка', 'прикреплена: ' + attached.map(function (f) { return f.name; }).join(', '), 2);
+    else if (d.manual === 'yes') add('📎', 'Методичка', 'есть, пришлю файлом в чат', 2);
     else if (d.manual === 'no') add('📎', 'Методичка', 'нет', 2);
 
     var mode = designMode(t, d);
@@ -1145,6 +1160,7 @@
   function openPreview() {
     if (!validateType()) { play('error'); goTo(0, { sound: false }); return; }
     if (!validateDeadline()) { play('error'); goTo(1, { sound: false }); return; }
+    if (uploads.some(function (u) { return u.state === 'loading'; })) { toast('Подождите пару секунд — методичка ещё загружается', '⏳', 4000); return; }
     preview = currentOrder();
     if (!preview) return;
     $('#previewText').textContent = preview.full;
@@ -1185,7 +1201,9 @@
     return {
       kind: 'np_order', v: 1, id: orderId, type: d.type || 'other',
       deadline: d.deadline_quick === 'flex' ? 'flex' : (d.deadline || ''),
-      lines: preview.lines.map(function (l) { return [l.icon, l.label, l.value]; })
+      lines: preview.lines.map(function (l) { return [l.icon, l.label, l.value]; }),
+      // Методичка, загруженная на сайте: бот прикрепит файлы к заказу
+      files: (d.manual === 'yes' ? uploadedFiles() : []).map(function (f) { return { path: f.path, name: f.name, size: f.size }; })
     };
   }
 
@@ -1204,7 +1222,80 @@
   // Заявка ушла: следующий заказ получит новый номер (иначе бот принял бы его за повтор этой же заявки)
   function orderSent() {
     orderId = '';
+    uploads = [];
+    renderUploads();
     saveDraft();
+  }
+
+  /* --- Методичка: загрузка файлов прямо в хранилище (закрытая папка, видят только админы) --- */
+  var uploads = []; // { name, size, path, state: 'loading' | 'done' | 'error' }
+  var UPLOAD_MAX = 20 * 1024 * 1024;
+  var RU_LAT = { а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z', и: 'i', й: 'y', к: 'k', л: 'l', м: 'm',
+    н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'h', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'sch', ъ: '', ы: 'y',
+    ь: '', э: 'e', ю: 'yu', я: 'ya' };
+  // Адрес в хранилище — только латиница (на русских буквах Supabase отвечает «Invalid key»); настоящее имя хранится отдельно
+  function safeFileName(name) {
+    var latin = Array.from(String(name || 'file')).map(function (ch) {
+      var low = ch.toLowerCase();
+      if (!(low in RU_LAT)) return ch;
+      var t = RU_LAT[low];
+      return ch !== low && t ? t[0].toUpperCase() + t.slice(1) : t;
+    }).join('');
+    return (latin.replace(/[^A-Za-z0-9_.\-]+/g, '_').replace(/_+/g, '_').replace(/^[._]+|[._]+$/g, '') || 'file').slice(-80);
+  }
+  function randomHex(n) {
+    var a = new Uint8Array(n);
+    crypto.getRandomValues(a);
+    return Array.prototype.map.call(a, function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+  }
+  function uploadedFiles() { return uploads.filter(function (u) { return u.state === 'done'; }); }
+  function fileSize(n) { return n >= 1048576 ? (n / 1048576).toFixed(1).replace('.', ',') + ' МБ' : Math.max(1, Math.round(n / 1024)) + ' КБ'; }
+
+  function renderUploads() {
+    var list = $('#manualList');
+    if (!list) return;
+    var STATE = { loading: 'загружаю…', done: '✓ ' , error: 'не загрузилось' };
+    list.innerHTML = uploads.map(function (u, i) {
+      return '<li><span aria-hidden="true">📄</span><span class="upload__name">' + esc(u.name) + '</span>' +
+        '<span class="upload__state" data-s="' + u.state + '">' + (u.state === 'done' ? STATE.done + fileSize(u.size) : esc(u.error || STATE[u.state])) + '</span>' +
+        '<button type="button" class="upload__del" data-i="' + i + '" aria-label="Убрать файл">✕</button></li>';
+    }).join('');
+  }
+
+  function uploadFile(file) {
+    var item = { name: file.name, size: file.size, path: 'site-uploads/' + randomHex(12) + '/' + safeFileName(file.name), state: 'loading' };
+    if (file.size > UPLOAD_MAX) { item.state = 'error'; item.error = 'больше 20 МБ — пришлите в бот'; }
+    uploads.push(item);
+    renderUploads();
+    if (item.state === 'error') return Promise.resolve();
+    var headers = { apikey: SB.key, 'Content-Type': file.type || 'application/octet-stream' };
+    if (/^eyJ/.test(SB.key)) headers.Authorization = 'Bearer ' + SB.key;
+    return fetch(SB.url + '/storage/v1/object/private/' + item.path.split('/').map(encodeURIComponent).join('/'), {
+      method: 'POST', headers: headers, body: file
+    }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      item.state = 'done';
+    }).catch(function () {
+      item.state = 'error';
+      item.error = 'не загрузилось — пришлите в бот';
+    }).then(function () { renderUploads(); syncUI(); });
+  }
+
+  function initUploads() {
+    var input = $('#manualFiles');
+    if (!input) return;
+    input.addEventListener('change', function () {
+      var files = Array.prototype.slice.call(input.files || []).slice(0, Math.max(0, 10 - uploads.length));
+      input.value = '';
+      files.forEach(uploadFile);
+    });
+    $('#manualList').addEventListener('click', function (e) {
+      var b = e.target.closest('.upload__del');
+      if (!b) return;
+      uploads.splice(Number(b.getAttribute('data-i')), 1);
+      renderUploads();
+      syncUI();
+    });
   }
 
   // Заказ принят — переходим в чат с ботом (там уже подтверждение). Сам по себе Mini App при закрытии
@@ -1529,6 +1620,7 @@
 
     initModals();
     initBuilder();
+    initUploads();
     initSummary();
     initSend();
     initFab();

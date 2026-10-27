@@ -121,6 +121,7 @@ export async function cbOpen(ctx: Ctx, orderId: number) {
   const o = await ownOrder(ctx, orderId);
   if (!o) return;
   await ctx.answer();
+  if (ctx.state === "attach" || ctx.state === "client_chat") await ctx.clearState(); // «Готово» после файлов
   await screen.editScreen(ctx.chatId, ctx.cbMsg.message_id, clientOrderText(o), K.orderDetailKb(o));
 }
 
@@ -156,6 +157,45 @@ export async function cbWrite(ctx: Ctx, orderId: number) {
   await screen.newScreen(ctx.chatId, fmt(T.WRITE_ORDER_PROMPT, { code: o.code }), K.backToOrderKb(o.id));
 }
 
+/** «📎 Прикрепить файл» — доступно в любой момент, пока заказ не отменён (и после «Выполнен» тоже). */
+export async function cbAttach(ctx: Ctx, orderId: number) {
+  const o = await ownOrder(ctx, orderId);
+  if (!o) return;
+  if (o.status === "cancelled") return void await ctx.answer(T.ATTACH_CLOSED, true);
+  await ctx.answer();
+  await ctx.setState("attach", { order_id: o.id, n: 0 });
+  await screen.newScreen(ctx.chatId, fmt(T.ATTACH_PROMPT, { code: o.code }), K.backToOrderKb(o.id));
+}
+
+/** Файлы (и сообщения) в режиме «Прикрепить файл»: в заказ и исполнителю; режим не закрывается, пока не нажмут «Готово». */
+export async function onAttach(ctx: Ctx) {
+  const o = await db.getOrder(ctx.data.order_id);
+  if (!o || o.user_id !== ctx.uid) {
+    await ctx.clearState();
+    return await onFreeMessage(ctx);
+  }
+  const isFile = !!tg.extractFile(ctx.msg!);
+  await relayToOrder(ctx, o);
+  const n = (ctx.data.n ?? 0) + (isFile ? 1 : 0);
+  await ctx.updateData({ n });
+  const text = isFile ? fmt(T.ATTACH_GOT, { code: o.code, n }) : T.ATTACH_TEXT;
+  await screen.newScreen(ctx.chatId, text, K.attachDoneKb(o.id), ctx.msg!.message_id);
+}
+
+/** Сообщение клиента — исполнителю; файлы прикрепляются к заказу, всё попадает в переписку админ-панели. */
+async function relayToOrder(ctx: Ctx, o: Order | null) {
+  const m = ctx.msg!;
+  const f = tg.extractFile(m);
+  const fileId = f && o ? await db.addFile(o.id, "client", f) : null; // файлы клиента прикрепляем к заказу
+  await relayToAdmins(ctx.config, m, o);
+  if (o) {
+    const name = (await db.getUser(ctx.uid))?.first_name ?? null;
+    const files = fileId ? [{ id: `bot-${fileId}`, name: f!.name ?? (f!.type === "photo" ? "фото" : "файл") }] : [];
+    const text = m.text ?? m.caption ?? (f ? null : m.voice ? "🎤 голосовое сообщение" : "(сообщение без текста)");
+    await db.logMessage(o.id, "client", name, text, files);
+  }
+}
+
 export async function cbDiscuss(ctx: Ctx, orderId: number) {
   const o = await ownOrder(ctx, orderId);
   if (!o) return;
@@ -165,7 +205,16 @@ export async function cbDiscuss(ctx: Ctx, orderId: number) {
   await notifyOrderAdmins(ctx.config, o, fmt(T.CLIENT_WANTS_DISCUSS, { code: o.code }));
 }
 
+/** «Работа принята» — сначала переспрашиваем: случайное нажатие не должно закрывать заказ. */
 export async function cbAccept(ctx: Ctx, orderId: number) {
+  const o = await ownOrder(ctx, orderId);
+  if (!o) return;
+  if (o.status !== "review") return void await ctx.answer(T.ORDER_NOT_AVAILABLE, true);
+  await ctx.answer();
+  await screen.newScreen(ctx.chatId, fmt(T.ACCEPT_CONFIRM, { code: o.code }), K.acceptConfirmKb(o.id));
+}
+
+export async function cbAcceptYes(ctx: Ctx, orderId: number) {
   const o = await ownOrder(ctx, orderId);
   if (!o) return;
   if (!await changeStatus(ctx.config, o.id, "done", { notify: false, expected: ["review"] })) {
@@ -343,11 +392,9 @@ export async function onReviewText(ctx: Ctx) {
 // ======================= переписка с исполнителем =======================
 
 async function relay(ctx: Ctx, o: Order | null) {
-  const f = tg.extractFile(ctx.msg!);
-  if (f && o) await db.addFile(o.id, "client", f); // файлы клиента прикрепляем к заказу
-  await relayToAdmins(ctx.config, ctx.msg!, o);
+  await relayToOrder(ctx, o);
   // Сообщение клиента уже у исполнителя — в чате оставляем только подтверждение
-  await screen.newScreen(ctx.chatId, T.RELAYED, o ? K.backToOrderKb(o.id) : null, ctx.msg!.message_id);
+  await screen.newScreen(ctx.chatId, T.RELAYED, o ? K.withOrderButton(null, o) : null, ctx.msg!.message_id);
 }
 
 export async function onOrderMessage(ctx: Ctx) {

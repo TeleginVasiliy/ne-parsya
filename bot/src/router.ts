@@ -170,6 +170,7 @@ async function onMessage(ctx: Ctx, m: Msg): Promise<boolean> {
   // 6) Отзыв и переписка по заказу
   if (st === "review_text" && m.text) return void await C.onReviewText(ctx), false;
   if (st === "client_chat") return void await C.onOrderMessage(ctx), false;
+  if (st === "attach") return void await C.onAttach(ctx), false;
 
   // 7) Всё остальное — исполнителю
   if (st === null) await C.onFreeMessage(ctx);
@@ -206,6 +207,7 @@ async function onCallback(ctx: Ctx, cbq: Msg): Promise<boolean> {
       agree: () => P.cbAgree(ctx, o), pay: () => P.cbPay(ctx, o), receipt: () => P.cbReceipt(ctx, o),
       new: () => C.cbNew(ctx), list: () => C.cbList(ctx), open: () => C.cbOpen(ctx, o), files: () => C.cbFiles(ctx, o),
       write: () => C.cbWrite(ctx, o), discuss: () => C.cbDiscuss(ctx, o), accept: () => C.cbAccept(ctx, o),
+      accept_yes: () => C.cbAcceptYes(ctx, o), attach: () => C.cbAttach(ctx, o),
       cancel: () => C.cbCancel(ctx, o), cancel_yes: () => C.cbCancelYes(ctx, o),
     };
     if (handlers[parts[1]]) await handlers[parts[1]]();

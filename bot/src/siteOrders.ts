@@ -4,7 +4,7 @@
 // 3. bot_handoff: сайт кладёт JSON под кодом и открывает t.me/<бот>?start=order_<код>.
 // 4. Запасной: клиент вставляет скопированный текст заявки («🧾 Заявка #…»).
 import { T } from "./texts.ts";
-import type { Config } from "./config.ts";
+import { type Config, privateFileUrl } from "./config.ts";
 import * as db from "./db.ts";
 import type { Order } from "./db.ts";
 import * as K from "./kb.ts";
@@ -15,6 +15,9 @@ import { fmt, isIsoDate, makeIsoDate } from "./util.ts";
 const MAX_LINES = 40;
 export const HANDOFF_CODE_RE = /^[A-Za-z0-9]{8,32}$/;
 const SITE_ID_RE = /^[A-Z0-9]{4,8}$/;
+// Файлы, которые клиент загрузил на сайте (методичка): только своя папка хранилища со случайным адресом
+const SITE_FILE_RE = /^site-uploads\/[A-Za-z0-9]{8,64}\/[A-Za-z0-9_.\-]{1,100}$/;
+const MAX_SITE_FILES = 10;
 // deno-lint-ignore no-explicit-any
 const WORK_TYPES = T.WORK_TYPES as Record<string, any>;
 const NAME_TO_TYPE = new Map(Object.entries(WORK_TYPES).map(([k, v]) => [v.name.toLowerCase(), k]));
@@ -70,7 +73,12 @@ export function normalizePayload(raw: unknown): SiteOrder | null {
     type = work ? typeFromName(work) : "other";
   }
   const siteId = String(r.id ?? "").toUpperCase();
+  const files = (Array.isArray(r.files) ? r.files : []).filter((f: unknown) => f && typeof f === "object")
+    // deno-lint-ignore no-explicit-any
+    .map((f: any) => ({ path: String(f.path ?? ""), name: clean(f.name, 120) || "file", size: Number(f.size) || null }))
+    .filter((f: { path: string }) => SITE_FILE_RE.test(f.path)).slice(0, MAX_SITE_FILES);
   return {
+    files,
     type, type_name: WORK_TYPES[type].name, lines,
     deadline: parseDeadline(String(r.deadline ?? "")),
     site_id: SITE_ID_RE.test(siteId) ? siteId : null,
@@ -121,9 +129,13 @@ export async function createSiteOrder(config: Config, userId: number, data: Site
     }
   }
   // Номер заявки с сайта занят прошлым заказом — бот подберёт новый
-  const order = await db.createOrder(userId, data, "site", data.site_id);
+  const { files = [], ...orderData } = data;
+  const order = await db.createOrder(userId, orderData, "site", data.site_id);
   await db.setSourceIfEmpty(userId, "site");
-  await screen.newScreen(userId, fmt(T.ORDER_ACCEPTED_SITE, { code: order.code }), K.backToOrderKb(order.id));
+  // Методичка с сайта — сразу в заказ (бот скачает её из хранилища, когда будет отправлять)
+  for (const f of files) await db.addSiteClientFile(order.id, privateFileUrl(f.path), f.path, f.name, f.size);
+  const text = files.length ? fmt(T.ORDER_ACCEPTED_SITE_FILES, { code: order.code, n: files.length }) : fmt(T.ORDER_ACCEPTED_SITE, { code: order.code });
+  await screen.newScreen(userId, text, K.withOrderButton(null, order));
   await notifyNewOrder(config, order);
   return order;
 }

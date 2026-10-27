@@ -58,6 +58,14 @@ export class FakeTelegram {
       const f = this.storage.get(decodeURIComponent(url.pathname.slice("/storage/v1/object/public/".length)));
       return f ? new Response(f.data as BodyInit, { headers: { "content-type": f.type } }) : new Response("not found", { status: 404 });
     }
+    if (url.pathname.startsWith("/storage/v1/object/") && req.method === "GET") {
+      // Скачивание: публичный файл — без ключа, закрытый (authenticated) — только с ключом
+      const rest = decodeURIComponent(url.pathname.slice("/storage/v1/object/".length));
+      const [mode, ...key] = rest.split("/");
+      const file = this.storage.get(key.join("/"));
+      if (!file || (mode === "authenticated" && !req.headers.get("apikey"))) return new Response("not found", { status: 404 });
+      return new Response(file.data as BodyInit, { headers: { "content-type": file.type } });
+    }
     if (url.pathname.startsWith("/storage/v1/object/")) {
       const key = decodeURIComponent(url.pathname.slice("/storage/v1/object/".length));
       this.storage.set(key, { data: new Uint8Array(await req.arrayBuffer()), type: req.headers.get("content-type") ?? "" });

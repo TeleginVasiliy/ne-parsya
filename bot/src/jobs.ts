@@ -4,11 +4,10 @@ import { T } from "./texts.ts";
 import type { Config } from "./config.ts";
 import { log } from "./config.ts";
 import * as db from "./db.ts";
-import * as K from "./kb.ts";
-import { askReview, changeStatus, notifyClient, notifyOrderAdmins } from "./services.ts";
+import { amountDue, askReview, changeStatus, notifyClient, notifyOrderAdmins, paymentDetailsText, paymentKb } from "./services.ts";
 import { runBroadcasts } from "./admin.ts";
 import { pushSettings, syncOnce } from "./cloud.ts";
-import { fmt } from "./util.ts";
+import { fmt, money } from "./util.ts";
 
 const REMIND_AFTER_H = 24;
 const CANCEL_AFTER_H = 72;
@@ -27,14 +26,17 @@ export async function runReminders(config: Config) {
   for (const o of await db.ordersAwaitingSince("awaiting_payment", REMIND_AFTER_H)) {
     if (!o.remind_sent) {
       await db.markReminded(o.id);
-      await notifyClient(config, o, fmt(T.PAY_REMINDER, { code: o.code }), K.payKb(o.id, false, config.pay, o.price ? Math.max(0, (o.prepay || o.price) - o.paid) : 0, o.code));
+      // В напоминании — сразу реквизиты и сумма: оплатить можно прямо из него
+      await notifyClient(config, o, fmt(T.PAY_REMINDER, { code: o.code, amount: money(amountDue(o, "prepay")), details: paymentDetailsText(config) }),
+        paymentKb(config, o, "prepay"));
     }
   }
   // 2) Работа готова, ждёт доплаты > 24 ч — напоминание (без автоотмены)
   for (const o of await db.ordersAwaitingSince("awaiting_final", REMIND_AFTER_H)) {
     if (!o.remind_sent) {
       await db.markReminded(o.id);
-      await notifyClient(config, o, fmt(T.PAY_REMINDER_FINAL, { code: o.code }), K.payKb(o.id, true, config.pay, Math.max(0, (o.price || 0) - o.paid), o.code));
+      await notifyClient(config, o, fmt(T.PAY_REMINDER_FINAL, { code: o.code, amount: money(amountDue(o, "final")), details: paymentDetailsText(config) }),
+        paymentKb(config, o, "final"));
     }
   }
   // 3) Оценку просим сразу при «Выполнен»; если тогда сообщение не дошло — повторяем через сутки

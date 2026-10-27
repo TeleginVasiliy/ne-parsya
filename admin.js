@@ -20,7 +20,7 @@
   var STATE_NAME = { pending: 'отправляется', processing: 'отправляется', done: 'выполнено', error: 'ошибка' };
   var MONTHS = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
 
-  var data = { orders: [], payments: [], files: [], actions: [], reviews: [] };
+  var data = { orders: [], payments: [], files: [], actions: [], reviews: [], messages: null };
   var current = null; // открытый заказ
   var manualReady = true; // таблица ручных заказов есть в базе (SQL обновлён)
   var removed = {};       // удалённые заказы: не показываем, пока бот не уберёт их из базы
@@ -111,10 +111,13 @@
       SB.select('cloud_files', 'select=*&order=created_at.desc&limit=5000'),
       SB.select('cloud_actions', 'select=*&order=id.desc&limit=300'),
       SB.select('reviews', 'select=*&order=created_at.desc&limit=1000').catch(function () { return []; }),
-      SB.select('manual_orders', 'select=*&order=id.desc&limit=2000').catch(function () { return null; })
+      SB.select('manual_orders', 'select=*&order=id.desc&limit=2000').catch(function () { return null; }),
+      // Переписка с клиентами (null — таблицы ещё нет: SQL не обновлён)
+      SB.select('cloud_messages', 'select=*&order=id.desc&limit=5000').catch(function () { return null; })
     ]).then(function (r) {
       var keep = function (x) { return !removed[x.order_id != null ? x.order_id : x.id]; };
-      data = { orders: (r[0] || []).filter(keep), payments: (r[1] || []).filter(keep), files: r[2] || [], actions: r[3] || [], reviews: r[4] || [] };
+      data = { orders: (r[0] || []).filter(keep), payments: (r[1] || []).filter(keep), files: r[2] || [], actions: r[3] || [], reviews: r[4] || [],
+               messages: r[6] ? r[6].slice().reverse() : null };
       var pending = data.actions.filter(function (a) { return a.state === 'pending'; }).length;
       var last = data.orders.reduce(function (m, o) { return o.updated_at > m ? o.updated_at : m; }, ''); // до ручных заказов
       manualReady = r[5] !== null;
@@ -125,6 +128,7 @@
       renderOrders();
       renderReviews();
       if (current && redraw) openOrder(current.id, true);
+      else if (current && !current.manual) renderChat(current); // новые сообщения видно и при автообновлении
     }).catch(function (e) {
       if (e.status === 401) { SB.signOut(); showLogin('Сессия истекла — войдите снова.'); return; }
       toast('Не получилось загрузить данные: ' + e.message);
@@ -343,8 +347,8 @@
       '<select class="input" name="status" required style="flex:1"><option value="">Сейчас: ' + esc(STATUS[o.status] || o.status) + ' — выберите новый</option>' +
       MANUAL.filter(function (s) { return s !== o.status; }).map(function (s) { return '<option value="' + s + '">' + STATUS[s] + '</option>'; }).join('') +
       '</select><button class="btn btn--primary">Сменить статус</button></form></div>' +
-      '<div class="section-box"><h4>💬 Сообщение клиенту</h4><form id="fMsg">' +
-      '<textarea class="input textarea" name="text" maxlength="3500" rows="3" required placeholder="Текст сообщения"></textarea>' +
+      '<div class="section-box"><h4>💬 Переписка с клиентом</h4><div class="chat" id="chatBox"></div><form id="fMsg">' +
+      '<textarea class="input textarea" name="text" maxlength="3500" rows="3" required placeholder="Сообщение клиенту — придёт ему в Telegram"></textarea>' +
       '<button class="btn btn--primary">Отправить сообщение</button></form></div>' +
       '<div class="section-box"><h4>📎 Готовая работа</h4><form id="fWork">' +
       '<input class="input" type="file" name="files" multiple required>' +
@@ -359,9 +363,7 @@
           (p.receipt_path ? '<button type="button" class="btn btn--ghost btn--sm js-sign" data-path="' + esc(p.receipt_path) + '">Чек</button>' : '') + '</div>';
       }).join('') : '<p class="p-muted">Оплат ещё не было</p>') + '</div>' +
       '<div class="section-box"><h4>📁 Файлы клиента</h4>' +
-      (files.filter(function (f) { return f.kind === 'client'; }).map(function (f) {
-        return '<button type="button" class="file-link js-sign" data-path="' + esc(f.path) + '" style="text-align:left">' + esc(f.name) + '</button>';
-      }).join('') || '<p class="p-muted">Нет файлов</p>') + '</div>' +
+      (files.filter(function (f) { return f.kind === 'client'; }).map(fileLink).join('') || '<p class="p-muted">Нет файлов</p>') + '</div>' +
       (acts.length ? '<div class="section-box"><h4>🕑 Действия с сайта</h4><div class="act-list">' + acts.map(function (a) {
         return '<div><span class="act-state" data-s="' + esc(a.state) + '">' + esc(STATE_NAME[a.state] || a.state) + '</span>' +
           '<b>' + esc(ACTION_NAME[a.action] || a.action) + '</b><span class="p-muted">' + dt(a.created_at) + ' · ' + esc(a.created_by || '') +
@@ -372,6 +374,7 @@
       '<p class="p-muted">Заказ исчезнет из панели, статистики, бота и кабинета клиента вместе с оплатами, файлами и отзывом. ' +
       'Клиенту ничего не придёт. Отменить удаление нельзя.</p></form></div>';
     $('#drawerBox').innerHTML = html;
+    renderChat(o);
     bindDrawer(o);
     var dlg = $('#drawer');
     if (!dlg.open && !keepOpen) dlg.showModal();
@@ -379,10 +382,68 @@
 
   function fileList(files) {
     if (!files.length) return '';
-    return '<div class="files">' + files.map(function (f) {
-      return '<a class="file-link" href="' + SB.publicUrl(f.bucket, f.path) + '" target="_blank" rel="noopener">' + esc(f.name) +
-        (f.source === 'site' && !f.delivered ? ' · отправляется' : '') + '</a>';
-    }).join('') + '</div>';
+    // Все отправленные версии работы, от старых к новым
+    return '<div class="files"><p class="p-muted">Отправлено клиенту (' + files.length + '):</p>' + files.slice().sort(function (a, b) {
+      return a.created_at < b.created_at ? -1 : 1;
+    }).map(fileLink).join('') + '</div>';
+  }
+
+  // Ссылка на файл: готовая работа — публичная, файлы клиента — по временной ссылке после входа
+  function fileLink(f) {
+    var label = esc(f.name || 'файл') + '<span class="p-muted"> · ' + dt(f.created_at) +
+      (f.source === 'site' && f.kind === 'result' && !f.delivered ? ' · отправляется' : '') + '</span>';
+    if (f.bucket === 'results') return '<a class="file-link" href="' + SB.publicUrl(f.bucket, f.path) + '" target="_blank" rel="noopener">' + label + '</a>';
+    return '<button type="button" class="file-link js-sign" data-path="' + esc(f.path) + '" style="text-align:left">' + label + '</button>';
+  }
+
+  /* ---------------- переписка с клиентом ---------------- */
+  // Что писали клиент и админы (из бота и из панели) + сообщения из панели, которые бот ещё отправляет
+  function renderChat(o) {
+    var box = $('#chatBox');
+    if (!box) return;
+    var items = (data.messages || []).filter(function (m) { return m.order_id === o.id; }).map(function (m) {
+      return { mine: m.author === 'admin', name: m.name, text: m.text, files: m.files || [], at: m.created_at };
+    });
+    data.actions.filter(function (a) {
+      var text = a.payload && a.payload.text;
+      // Отправленные бот уже записал в переписку; до обновления базы показываем и их
+      return a.order_id === o.id && text && (a.action === 'message' || a.action === 'bundle') && (a.state !== 'done' || !data.messages);
+    }).forEach(function (a) {
+      items.push({ mine: true, name: a.created_by, text: a.payload.text, files: [], at: a.created_at,
+                   state: a.state === 'done' ? '' : a.state === 'error' ? '⚠️ не доставлено: ' + (a.result || 'ошибка') : '⏳ отправляется…' });
+    });
+    items.sort(function (a, b) { return a.at < b.at ? -1 : a.at > b.at ? 1 : 0; });
+    if (!items.length) {
+      box.innerHTML = '<p class="p-muted">' + (data.messages ? 'Сообщений пока нет. Здесь будет вся переписка по заказу — и из бота, и из панели.'
+        : 'Чтобы видеть переписку, выполните обновлённый supabase-setup.sql.') + '</p>';
+      return;
+    }
+    var stick = box.scrollHeight - box.scrollTop - box.clientHeight < 40; // был внизу — остаёмся внизу
+    box.innerHTML = items.map(function (m) {
+      var files = (m.files || []).map(function (ref) {
+        var f = data.files.filter(function (x) { return x.id === ref.id; })[0];
+        return f ? fileLink(f) : '<span class="file-link">' + esc(ref.name || 'файл') + '<span class="p-muted"> · загружается на сайт…</span></span>';
+      }).join('');
+      return '<div class="msg' + (m.mine ? ' msg--mine' : '') + '"><div class="msg__head">' + (m.mine ? '🛠 ' : '👤 ') + esc(m.name || (m.mine ? 'Исполнитель' : 'Клиент')) +
+        ' · ' + dt(m.at) + '</div>' + (m.text ? '<div class="msg__text">' + esc(m.text) + '</div>' : '') + files +
+        (m.state ? '<div class="msg__state">' + esc(m.state) + '</div>' : '') + '</div>';
+    }).join('');
+    if (stick || !box.dataset.ready) box.scrollTop = box.scrollHeight;
+    box.dataset.ready = '1';
+    bindSign(box);
+  }
+
+  function bindSign(root) {
+    $$('.js-sign', root).forEach(function (b) {
+      if (b.dataset.bound) return;
+      b.dataset.bound = '1';
+      b.addEventListener('click', function () {
+        var w = window.open('', '_blank');
+        SB.signedUrl('private', b.getAttribute('data-path'), 600).then(function (u) {
+          if (w) w.location = u; else location.href = u;
+        }).catch(function (err) { if (w) w.close(); toast('Не открылся файл: ' + err.message); });
+      });
+    });
   }
 
   // Понятный текст ошибки: что случилось и что сделать
@@ -447,7 +508,16 @@
       e.preventDefault();
       var text = fm.text.value.trim();
       if (!text) return;
-      sendAction(fm, 'message', { text: text }, 'Сообщение отправлено клиенту').then(function (sent) { if (sent) fm.reset(); });
+      sendAction(fm, 'message', { text: text }, 'Сообщение отправляется клиенту').then(function (sent) {
+        if (!sent) return;
+        fm.reset();
+        // Сразу видно в переписке («отправляется»), бот подтвердит через пару секунд
+        data.actions.unshift({ order_id: o.id, action: 'message', payload: { text: text }, state: 'pending', created_at: new Date().toISOString(),
+                               created_by: SB.session() && SB.session().email });
+        var box = $('#chatBox');
+        if (box) box.dataset.ready = '';
+        renderChat(o);
+      });
     });
     var fw = $('#fWork');
     fw.addEventListener('submit', function (e) {
@@ -490,14 +560,7 @@
         $('#drawer').close();
       });
     });
-    $$('.js-sign', $('#drawerBox')).forEach(function (b) {
-      b.addEventListener('click', function () {
-        var w = window.open('', '_blank');
-        SB.signedUrl('private', b.getAttribute('data-path'), 600).then(function (u) {
-          if (w) w.location = u; else location.href = u;
-        }).catch(function (err) { if (w) w.close(); toast('Не открылся файл: ' + err.message); });
-      });
-    });
+    bindSign($('#drawerBox'));
   }
   $('#drawer').addEventListener('close', function () { current = null; });
 

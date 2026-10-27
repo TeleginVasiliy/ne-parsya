@@ -157,22 +157,33 @@ try {
   wo = (await db.getOrder(w.id))!;
   const sentDoc = tg.methods("sendDocument").filter((p) => p.chat_id === C1).pop()!;
   // Word-файл по ссылке Telegram не принимает — бот скачивает его из хранилища и загружает сам, под настоящим именем
-  assert(wo.status === "review" && sentDoc.document?.upload === "referat.docx", JSON.stringify(sentDoc));
+  // (копия уже ушла админам при загрузке, поэтому клиенту — по готовому идентификатору Telegram)
+  const adminCopy = tg.methods("sendDocument").find((p) => p.chat_id === OWNER && p.document?.upload === "referat.docx");
+  assert(adminCopy && /Отправлено клиенту/.test(adminCopy.caption ?? ""), "админ видит, какой файл ушёл");
+  assert(wo.status === "review" && sentDoc.document === "tg_referat.docx", JSON.stringify(sentDoc));
   co = (await db.q("select * from cloud_orders where code = 'W1W1'"))[0];
   const cab2 = (await asRole("anon", null, "select client_cabinet($1) c", [co.client_token]))[0].c;
   const wCab = cab2.orders.find((o: any) => o.code === "W1W1");
   assert(wCab.status === "review" && wCab.paid === 3000 && wCab.files.length === 1 && wCab.files[0].name === "referat.docx", JSON.stringify(wCab));
   ok("готовая работа из панели: запрос доплаты → оплата → файл клиенту в Telegram и в кабинете");
 
-  // --- 6. Готовая работа из бота заменяет прошлую
+  // --- 6. Новая версия работы из бота добавляется к прошлой (ничего не пропадает)
   await d.send(owner, "/order W1W1");
   await d.click(owner, "Отправить готовую работу");
   await d.doc(owner, "referat_v2.docx", "application/msword");
   await d.click(owner, "Готово");
   const files = await db.q("select * from cloud_files where order_id = $1 and kind = 'result' and source = 'bot'", [w.id]);
   assert(files.length === 1 && files[0].bucket === "results" && /^[0-9a-f]{32}\/referat_v2\.docx$/.test(files[0].path) && tg.storage.has(`results/${files[0].path}`));
-  assert(!(await db.q("select 1 from cloud_files where id = 'site-1'")).length, "прошлая версия работы убрана");
-  ok("готовая работа из бота попадает на сайт по случайному адресу и заменяет прошлую");
+  assert((await db.q("select 1 from cloud_files where id = 'site-1'")).length === 1, "прошлая версия работы осталась");
+  await d.send(c, "📦 Мои заказы");
+  await d.click(c, "#W1W1");
+  await d.click(c, "Получить готовую работу");
+  const got = tg.methods("sendDocument").filter((p) => p.chat_id === C1).slice(-2).map((p) => p.document);
+  assert(JSON.stringify(got) === '["tg_referat.docx","file_referat_v2.docx"]', JSON.stringify(got));
+  const chat = await asRole("authenticated", "admin@mail.ru", "select author, name, text, files from cloud_messages where order_id = $1 order by id", [w.id]);
+  assert(chat.length === 2 && chat.every((m: any) => m.author === "admin" && m.files.length === 1), JSON.stringify(chat));
+  assert(chat[0].files[0].id === "site-1" && chat[1].files[0].id === files[0].id, JSON.stringify(chat));
+  ok("готовая работа из бота попадает на сайт по случайному адресу и добавляется к прошлой; в «Мои заказы» — все файлы");
 
   // --- 7. Реквизиты и кнопка кабинета
   await handler(new Request(`http://x/bot?cron=${(await sha256Hex(`cron:${TOKEN}`)).slice(0, 40)}`));
@@ -225,6 +236,66 @@ try {
   await (await import("../src/cloud.ts")).pushChanged();
   assert((await db.q("select 1 from reviews where order_code = $1", [rvOrder.code])).length === 0, "удалённый не возвращается");
   ok("отзыв-оценка без текста виден на сайте; «Удалить» в панели убирает отзыв и с сайта, и из бота");
+
+  // --- 10. Методичка с сайта, «Прикрепить файл», переписка в панели, реквизиты в напоминании
+  // Посетитель может только загрузить файл в site-uploads; чужие файлы не видит
+  await asRole("anon", null, "insert into storage.objects(bucket_id, name) values('private', 'site-uploads/a1b2c3d4e5f6/metodichka.pdf')");
+  assert(await refused("anon", null, "insert into storage.objects(bucket_id, name) values('private', 'receipts/X/1.jpg')"), "только site-uploads");
+  assert((await asRole("anon", null, "select * from storage.objects")).length === 0, "аноним не видит файлы");
+  tg.storage.set("private/site-uploads/a1b2c3d4e5f6/metodichka.pdf", { data: new TextEncoder().encode("pdf"), type: "application/pdf" });
+  const withFile = { kind: "np_order", id: "MF01", type: "coursework", lines: [["📝", "Работа", "Курсовая работа"], ["📎", "Методичка", "прикреплена: Методичка.pdf"]],
+    files: [{ path: "site-uploads/a1b2c3d4e5f6/metodichka.pdf", name: "Методичка.pdf", size: 3 }, { path: "receipts/X/1.jpg", name: "чужой" }] };
+  await asRole("anon", null, "insert into incoming_orders(init_data, payload) values($1, $2::text::jsonb)",
+    [await initData({ id: C1, first_name: "Аня" }), JSON.stringify(withFile)]);
+  await kick();
+  const mf = (await db.getOrderByCode("MF01"))!;
+  const mfFiles = await db.getFiles(mf.id, "client");
+  assert(mfFiles.length === 1 && mfFiles[0].file_name === "Методичка.pdf", JSON.stringify(mfFiles)); // чужой путь отброшен
+  assert(tg.lastText(C1).includes("Файлы с сайта (1 шт.)") && tg.findButton(C1, "Прикрепить файл"), tg.lastText(C1));
+  // бот скачал закрытый файл со своим ключом и отправил админам
+  assert(tg.methods("sendDocument").some((p) => [ME, OWNER].includes(p.chat_id) && p.document?.upload === "Методичка.pdf"));
+  assert(tg.methods("sendDocument").filter((p) => p.chat_id === OWNER).pop()!.document?.includes?.("Методичка"));
+  const mfCloud = await asRole("authenticated", "admin@mail.ru", "select * from cloud_files where order_id = $1", [mf.id]);
+  assert(mfCloud.length === 1 && mfCloud[0].kind === "client" && mfCloud[0].bucket === "private", JSON.stringify(mfCloud));
+  ok("методичка с сайта: загрузка только в свою папку, файл прикреплён к заказу и пришёл админам");
+
+  await d.click(c, "Прикрепить файл");
+  assert(tg.lastText(C1).includes("Пришлите файлы к заказу"));
+  await d.doc(c, "zadanie.docx", "application/msword");
+  await d.doc(c, "primer.pdf");
+  assert(tg.lastText(C1).includes("файлов: 2") && tg.findButton(C1, "Готово"), tg.lastText(C1));
+  await d.send(c, "И ещё: нужен список из 20 источников");
+  assert((await db.getFiles(mf.id, "client")).length === 3);
+  assert(tg.sentTo(OWNER).some((t) => t.includes("20 источников")));
+  await d.click(c, "Готово");
+  assert(tg.lastText(C1).includes("Заказ #MF01"));
+  // Сообщение из панели — тоже в переписке
+  await asRole("authenticated", "admin@mail.ru", "insert into cloud_actions(order_id, action, payload) values($1, 'message', $2::text::jsonb)",
+    [mf.id, JSON.stringify({ text: "Получил, спасибо!" })]);
+  await kick();
+  await (await import("../src/cloud.ts")).pushChanged();
+  const log = await asRole("authenticated", "admin@mail.ru", "select author, name, text, files from cloud_messages where order_id = $1 order by id", [mf.id]);
+  assert(log.length === 4 && log[0].author === "client" && log[0].files[0].name === "zadanie.docx" && log[2].text.includes("20 источников") &&
+    log[3].author === "admin" && log[3].name === "admin@mail.ru" && log[3].text === "Получил, спасибо!", JSON.stringify(log));
+  const clientFile = await asRole("authenticated", "admin@mail.ru", "select * from cloud_files where id = $1", [log[0].files[0].id]);
+  assert(clientFile.length === 1, "файл из переписки есть на сайте");
+  assert((await asRole("authenticated", "stranger@mail.ru", "select * from cloud_messages")).length === 0, "переписку видят только админы");
+  ok("«📎 Прикрепить файл» в любой момент; переписка (клиент, админ, файлы) видна в админ-панели");
+
+  // Напоминание об оплате — сразу с реквизитами; кнопка «Оплатить» есть и под другими сообщениями
+  await asRole("authenticated", "admin@mail.ru", "insert into cloud_actions(order_id, action, payload) values($1, 'price', $2::text::jsonb)",
+    [mf.id, JSON.stringify({ price: 5000, deadline: "неделя" })]);
+  await kick();
+  await d.click(c, "Согласен");
+  await asRole("authenticated", "admin@mail.ru", "insert into cloud_actions(order_id, action, payload) values($1, 'message', $2::text::jsonb)",
+    [mf.id, JSON.stringify({ text: "Жду оплату" })]);
+  await kick();
+  assert(tg.lastText(C1).includes("Жду оплату") && tg.findButton(C1, "💳 Оплатить"), tg.lastText(C1));
+  await db.exec("update bot_orders set status_changed_at = now() - interval '25 hours' where id = $1", [mf.id]);
+  await (await import("../src/jobs.ts")).runReminders((await import("../src/config.ts")).loadConfig());
+  const remind = tg.lastText(C1);
+  assert(remind.includes("Напоминаю") && remind.includes("2200") && remind.includes("<code>MF01</code>") && tg.findButton(C1, "Я оплатил"), remind);
+  ok("напоминание об оплате — с реквизитами; «💳 Оплатить» под любым сообщением, пока заказ не оплачен");
 
   await tg.stop();
   console.log(`\n✅ Связь с сайтом: все проверки пройдены (${PASSED.length})`);
