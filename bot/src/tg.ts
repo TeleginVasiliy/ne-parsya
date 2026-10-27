@@ -1,7 +1,7 @@
 // Запросы к Telegram Bot API без падений: ждём при флуд-лимите, помечаем
 // заблокировавших бота, «message is not modified» и прочие отказы не роняют бота.
 import * as db from "./db.ts";
-import { log } from "./config.ts";
+import { log, storageHeaders } from "./config.ts";
 import { CAPTION_LIMIT, sleep, splitText } from "./util.ts";
 
 // deno-lint-ignore no-explicit-any
@@ -142,7 +142,9 @@ export async function sendFile(chatId: number, fileType: string, fileId: string,
 
 async function fetchAsFile(url: string, name?: string | null): Promise<File | null> {
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(60000) });
+    // Закрытый файл хранилища (методичка с сайта) скачиваем с ключом бота
+    const headers = url.includes("/storage/v1/object/authenticated/") ? storageHeaders() : undefined;
+    const res = await fetch(url, { headers, signal: AbortSignal.timeout(60000) });
     if (!res.ok) return null;
     const fallback = decodeURIComponent(url.split("?")[0].split("/").pop() || "file");
     return new File([await res.arrayBuffer()], name || fallback, { type: res.headers.get("content-type") || "application/octet-stream" });

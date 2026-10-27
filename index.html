@@ -45,7 +45,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=9">
+  <link rel="stylesheet" href="styles.css?v=10">
 </head>
 <body>
   <a class="skip-link" href="#builder">Перейти к конструктору заказа</a>
@@ -140,6 +140,7 @@
             <li>Бесплатные доработки</li>
             <li>ГОСТ и методичка</li>
           </ul>
+          <p class="soon-banner reveal"><span aria-hidden="true">🛡</span> Наш антиплагиат — скоро…</p>
         </div>
 
         <!-- Декоративная «заявка» — показывает, как выглядит заказ -->
@@ -303,6 +304,17 @@
               </div>
 
               <div class="field">
+                <div class="field__label">Процент ИИ <span class="opt">проверка на нейросети</span></div>
+                <div class="chips" role="radiogroup" aria-label="Процент ИИ">
+                  <label class="chip"><input type="radio" name="ai" value="0"><span>0% — без ИИ</span></label>
+                  <label class="chip"><input type="radio" name="ai" value="10"><span>до 10%</span></label>
+                  <label class="chip"><input type="radio" name="ai" value="20"><span>до 20%</span></label>
+                  <label class="chip"><input type="radio" name="ai" value="30"><span>до 30%</span></label>
+                  <label class="chip"><input type="radio" name="ai" value="any"><span>Не важно</span></label>
+                </div>
+              </div>
+
+              <div class="field">
                 <div class="field__label">Есть методичка или требования преподавателя?</div>
                 <div class="chips" role="radiogroup" aria-label="Методичка">
                   <label class="chip"><input type="radio" name="manual" value="yes"><span>Да, есть</span></label>
@@ -311,6 +323,16 @@
                 <div class="hint-box" id="manualHint" hidden>
                   <span aria-hidden="true">📎</span>
                   <p>Отлично! После отправки заявки прикрепите файл методички и требования прямо в чат Telegram — я учту их до расчёта цены.</p>
+                </div>
+                <!-- Методичка прямо на сайте (когда подключена база) -->
+                <div class="upload" id="manualUpload" hidden>
+                  <label class="upload__drop">
+                    <input type="file" id="manualFiles" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.rtf,.odt,.zip,.rar,image/*">
+                    <span class="upload__icon" aria-hidden="true">📎</span>
+                    <span><b>Прикрепить методичку</b><small>PDF, Word, фото — до 20 МБ, можно несколько файлов</small></span>
+                  </label>
+                  <ul class="upload__list" id="manualList"></ul>
+                  <p class="field__hint">Файлы придут исполнителю вместе с заказом. Можно и позже — кнопкой «📎 Прикрепить файл» в боте.</p>
                 </div>
               </div>
             </fieldset>
@@ -485,8 +507,7 @@
                     <label class="chip"><input type="radio" name="dr_soft" value="AutoCAD"><span>AutoCAD</span></label>
                     <label class="chip"><input type="radio" name="dr_soft" value="КОМПАС-3D"><span>КОМПАС-3D</span></label>
                     <label class="chip"><input type="radio" name="dr_soft" value="SolidWorks"><span>SolidWorks</span></label>
-                    <label class="chip"><input type="radio" name="dr_soft" value="от руки"><span>От руки</span></label>
-                    <label class="chip"><input type="radio" name="dr_soft" value="не важно"><span>Не важно</span></label>
+                                        <label class="chip"><input type="radio" name="dr_soft" value="не важно"><span>Не важно</span></label>
                   </div>
                 </div>
                 <div class="field">
@@ -731,6 +752,7 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 4 3 11l6 2.5L11.5 20l3.2-4.2L19.5 19z"/><path d="m9 13.5 6.5-5"/></svg>
         <span data-tg-handle>Telegram</span>
       </a>
+      <p class="footer__note">Мы не гарантируем 100% совпадение результатов, но мы стремимся к этому!</p>
       <p class="footer__copy">© <span id="year"></span> «Не Парься». Помощь студентам. <a href="cabinet.html" data-cabinet>Мой кабинет</a> · <a href="admin.html">Для админов</a></p>
     </div>
   </footer>
@@ -785,6 +807,6 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="config.js?v=9"></script>
   <script src="sounds.js?v=7"></script>
-  <script src="script.js?v=11"></script>
+  <script src="script.js?v=12"></script>
 </body>
 </html>

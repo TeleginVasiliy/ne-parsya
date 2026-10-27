@@ -61,6 +61,8 @@ async function fillCoursework(d: Driver, tg: FakeTelegram, c: { id: number; firs
   const f = new Date(Date.now() + 10 * 864e5);
   await d.send(c, `${String(f.getDate()).padStart(2, "0")}.${String(f.getMonth() + 1).padStart(2, "0")}.${f.getFullYear()}`);
   await d.click(c, "70%");
+  assert(tg.lastText(c.id).includes("процент ИИ") && tg.lastText(c.id).includes("Шаг 7/11"), tg.lastText(c.id));
+  await d.click(c, "до 20%");
   assert(tg.lastText(c.id).includes("Шаг 8/11"), tg.lastText(c.id));
   await d.click(c, "ГОСТ");
   await d.click(c, "Times New Roman");
@@ -241,10 +243,16 @@ async function scenarioMain() {
   o = (await db.getOrder(o.id))!;
   assert(o.status === "review" && contains(tg.sentTo(C1), "готова"));
   assert(JSON.stringify(tg.methods("sendDocument").filter((p) => p.chat_id === C1).map((p) => p.document)) === '["file_kursovaya_final.docx"]');
+  // Файлы работы остаются в чате насовсем: следующее сообщение их не стирает
+  const workMsg = [...tg.msgs.values()].filter((m) => m.chat === C1 && m.bot && m.method === "sendDocument").pop();
   await d.click(c1, "Работа принята");
   o = (await db.getOrder(o.id))!;
+  assert(o.status === "review" && tg.lastText(C1).includes("Подтвердите"), tg.lastText(C1)); // сначала переспрашиваем
+  await d.click(c1, "Да, всё отлично");
+  o = (await db.getOrder(o.id))!;
   assert(o.status === "done");
-  ok("готовая работа → «На проверке» → клиент принял → «Выполнен»");
+  assert(workMsg && !workMsg.deleted, JSON.stringify(workMsg));
+  ok("готовая работа → «На проверке» → клиент подтвердил → «Выполнен»; файл работы остался в чате");
 
   // --- отзыв
   const config = (await import("../src/config.ts")).loadConfig();
@@ -327,6 +335,7 @@ async function scenarioMain() {
   await d.send(c2, "15");
   await d.click(c2, "Неделя");
   await d.click(c2, "Не нужно");
+  await d.click(c2, "Не важно");
   assert(tg.lastText(C2).includes("Шаг 8/11") && tg.lastText(C2).includes("Дизайн"));
   await d.click(c2, "Минимализм");
   await d.click(c2, "Свой вариант");
@@ -364,6 +373,7 @@ async function scenarioMain() {
   await d.send(c2, "8");
   await d.click(c2, "Завтра");
   await d.click(c2, "80%");
+  await d.click(c2, "0% — без ИИ");
   assert(tg.lastText(C2).includes("Дополнительные услуги") && tg.lastText(C2).includes("Шаг 8/10"));
   await d.click(c2, "Срочное выполнение");
   await d.click(c2, "Готово");
@@ -375,7 +385,7 @@ async function scenarioMain() {
   assert(tg.lastText(C2).includes("задач") && !tg.lastText(C2).includes("Объём"));
   await d.send(c2, "6");
   summ = tg.lastText(C2);
-  assert(summ.includes("Решение задач") && summ.includes("6 задач") && summ.includes("МГТУ, колледж") && summ.includes("Оригинальность:</b> 80%") && !summ.includes("eTXT"), summ);
+  assert(summ.includes("Решение задач") && summ.includes("6 задач") && summ.includes("МГТУ, колледж") && summ.includes("Оригинальность:</b> 80%") && summ.includes("Процент ИИ:</b> 0% — без ИИ") && !summ.includes("eTXT"), summ);
   await d.click(c2, "Отправить");
   ok("контрольная: 10 шагов, «Назад», «В начало заказа», смена типа через «Изменить» переспрашивает объём");
 
@@ -480,7 +490,7 @@ async function scenarioMain() {
   assert(tg.visible(506).length === 2);
   taps.push((await d.send(c6, "История России")).id);
   assert(tg.visible(506).length === 1 && tg.visible(506)[0].includes("Шаг 3/11"));
-  for (const label of ["Тему подберёт", "Пропустить", "10", "Не горит", "Не нужно", "ГОСТ", "Arial", "12", "1.5"]) await d.click(c6, label);
+  for (const label of ["Тему подберёт", "Пропустить", "10", "Не горит", "Не нужно", "Не важно", "ГОСТ", "Arial", "12", "1.5"]) await d.click(c6, label);
   await d.click(c6, "Готово");
   await d.click(c6, "Готово");
   await d.click(c6, "Пропустить");

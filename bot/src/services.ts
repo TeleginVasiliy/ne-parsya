@@ -238,7 +238,7 @@ export async function notifyOrderAdmins(config: Config, o: Order, text: string) 
 export async function notifyClient(config: Config, o: Order, text: string, markup?: { inline_keyboard: unknown[][] } | null): Promise<boolean> {
   // Уведомление — новый «экран» клиента; к нему кнопка «Открыть заказ», где вся информация
   // deno-lint-ignore no-explicit-any
-  const msg = await screen.newScreen(o.user_id, text, K.withOrderButton(markup as any, o.id));
+  const msg = await screen.newScreen(o.user_id, text, K.withOrderButton(markup as any, o));
   if (!msg) {
     await warnClientUnreachable(config, o);
     return false;
@@ -349,27 +349,41 @@ export async function sendPaymentInstructions(config: Config, o: Order, kind: st
   return await notifyClient(config, o, paymentText(config, o, kind), paymentKb(config, o, kind));
 }
 
-/** Отправляет клиенту готовую работу и переводит заказ «На проверке». */
-export async function deliverResult(config: Config, orderId: number): Promise<boolean> {
+/** Отправляет клиенту готовую работу (files — только новые файлы; без них — все файлы работы)
+ *  и переводит заказ «На проверке». Файлы остаются в чате насовсем — их не заменяет следующее сообщение. */
+export async function deliverResult(config: Config, orderId: number, files?: db.Row[]): Promise<boolean> {
   const o = (await db.getOrder(orderId))!;
-  const files = await db.getFiles(orderId, "result");
-  // Прежний экран убираем только когда всё дошло — иначе клиент остался бы с пустым чатом
-  const before = await screen.begin(o.user_id);
-  const sent: number[] = [];
-  for (const f of files) {
-    const msg = await sendStoredFile(o.user_id, f);
-    if (!msg) {
-      await warnClientUnreachable(config, o);
-      if (sent.length) await screen.commit(o.user_id, { ...before, ids: [] }, sent); // дошедшие файлы — в экран
-      return false;
-    }
-    sent.push(msg.message_id); // файлы — часть экрана, их можно получить снова
-  }
-  const done = await tg.sendText(o.user_id, fmt(T.RESULT_DELIVERED, { code: o.code }), K.withOrderButton(K.acceptWorkKb(orderId), orderId));
-  if (done) sent.push(done.message_id);
-  await screen.commit(o.user_id, before, sent);
+  if (!await sendResultFiles(config, o, files ?? await db.getFiles(orderId, "result"))) return false;
+  await screen.newScreen(o.user_id, fmt(T.RESULT_DELIVERED, { code: o.code }), K.withOrderButton(K.acceptWorkKb(orderId), orderId));
   await changeStatus(config, orderId, "review", { notify: false });
   return true;
+}
+
+/** Файлы готовой работы — клиенту. Не часть «экрана»: следующее сообщение бота их не сотрёт. */
+export async function sendResultFiles(config: Config, o: Order, files: db.Row[]): Promise<boolean> {
+  for (const f of files) {
+    if (!await sendStoredFile(o.user_id, f)) {
+      await warnClientUnreachable(config, o);
+      return false;
+    }
+  }
+  return true;
+}
+
+/** Копии отправленных клиенту файлов — админам заказа (чтобы видеть, что именно ушло). */
+export async function sendFilesToAdmins(config: Config, o: Order, files: db.Row[]) {
+  const caption = fmt(T.ADMIN_SENT_FILE_CAPTION, { code: o.code });
+  for (const adminId of orderAdminTargets(config, o)) {
+    for (const f of files) {
+      const msg = await sendStoredFile(adminId, f, caption);
+      if (msg) await db.mapMessage(adminId, msg.message_id, o.user_id, o.id);
+    }
+  }
+}
+
+/** Готовая работа в переписке админ-панели. */
+export async function logResultFiles(o: Order, files: db.Row[], who: string | null) {
+  await db.logMessage(o.id, "admin", who, "📎 Готовая работа", files.map((f) => ({ id: db.cloudFileId(f), name: f.file_name })));
 }
 
 // ======================= переписка =======================
@@ -399,8 +413,18 @@ export async function relayToAdmins(config: Config, m: Msg, o: Order | null): Pr
 
 /** Ответ админа уходит клиенту от имени бота. */
 export async function sendAdminMessageToClient(m: Msg, userId: number, o: Order | null): Promise<boolean> {
+  const ok = await sendAdminMessage(m, userId, o);
+  if (ok && o) {
+    const f = tg.extractFile(m);
+    const text = m.text ?? m.caption ?? (f ? `📎 ${f.name || "файл"}` : "(сообщение без текста)");
+    await db.logMessage(o.id, "admin", (await db.getUser(m.from.id))?.first_name ?? null, text);
+  }
+  return ok;
+}
+
+async function sendAdminMessage(m: Msg, userId: number, o: Order | null): Promise<boolean> {
   const header = fmt(T.ADMIN_REPLY_HEADER, { order: o ? fmt(T.ADMIN_REPLY_ORDER, { code: o.code }) : "" });
-  if (m.text) return !!await screen.newScreen(userId, `${header}\n\n${esc(m.text)}`);
+  if (m.text) return !!await screen.newScreen(userId, `${header}\n\n${esc(m.text)}`, o ? K.withOrderButton(null, o) : null);
   // Ответ исполнителя — новый экран клиента; прежний убираем, только если ответ дошёл
   const before = await screen.begin(userId);
   const noCaption = !!(m.video_note || m.sticker || m.dice || m.location || m.contact);

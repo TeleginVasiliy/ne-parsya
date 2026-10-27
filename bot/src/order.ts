@@ -24,7 +24,7 @@ const MAX_FILES = 20;
 const GROUPS = ["type", "subject", "topic", "uni", "volume", "deadline", "orig", "design", "extras", "files", "comment"];
 const Q_GROUP: Record<string, string> = {
   type: "type", subject: "subject", topic: "topic", uni: "uni", course: "uni",
-  volume: "volume", deadline: "deadline", date: "deadline", orig: "orig", orig_sys: "orig",
+  volume: "volume", deadline: "deadline", date: "deadline", orig: "orig", orig_sys: "orig", ai: "orig",
   fmt_std: "design", fmt_font: "design", fmt_font_text: "design", fmt_size: "design",
   fmt_size_text: "design", fmt_spacing: "design", fmt_parts: "design",
   pr_style: "design", pr_palette: "design", pr_palette_text: "design", pr_format: "design",
@@ -71,7 +71,7 @@ function nextQuestion(q: string, a: A): string {
   };
   if (q === "uni") return a.uni ? "course" : "volume";
   if (q === "deadline") return a.deadline_choice === "date" ? "date" : "orig";
-  if (q === "orig") return nextGroupQuestion("orig", a); // систему антиплагиата не спрашиваем
+  if (q === "orig") return "ai"; // систему антиплагиата не спрашиваем — сразу процент ИИ
   if (q === "fmt_font") return a.fmt_font === "другой" ? "fmt_font_text" : "fmt_size";
   if (q === "fmt_size") return a.fmt_size === "другой" ? "fmt_size_text" : "fmt_spacing";
   if (q === "pr_palette") return a.pr_palette === "свой вариант" ? "pr_palette_text" : "pr_format";
@@ -143,7 +143,8 @@ function renderQuestion(data: A, config: Config): [string, { inline_keyboard: Bt
 
   if (q === "type") {
     text = T.Q_TYPE;
-    kb = rows(TYPE_KEYS.map((key, i) => fbtn(`${WORK_TYPES[key].emoji} ${WORK_TYPES[key].name}`, q, i)), 2);
+    const soon = T.SOON_TYPES as readonly string[];
+    kb = rows(TYPE_KEYS.map((key, i) => fbtn(`${WORK_TYPES[key].emoji} ${WORK_TYPES[key].name}${soon.includes(key) ? T.SOON_MARK : ""}`, q, i)), 2);
   } else if (q === "subject") {
     text = T.Q_SUBJECT;
   } else if (q === "topic") {
@@ -168,6 +169,9 @@ function renderQuestion(data: A, config: Config): [string, { inline_keyboard: Bt
   } else if (q === "orig") {
     text = T.Q_ORIG;
     kb = rows(T.ORIGINALITY.map(([v, label]) => fbtn(label, q, v)), 3);
+  } else if (q === "ai") {
+    text = T.Q_AI;
+    kb = rows(T.AI_LEVELS.map(([v, label]) => fbtn(label, q, v)), 2);
   } else if (q in SIMPLE_CHOICES) {
     const [options, t] = SIMPLE_CHOICES[q];
     text = t;
@@ -223,6 +227,9 @@ export function buildLines(a: A): string[][] {
   }
   if (a.orig === "none") add("🔍", "Оригинальность", "проверка не нужна");
   else if (a.orig) add("🔍", "Оригинальность", `${a.orig}%`);
+  if (a.ai === "any") add("🤖", "Процент ИИ", "не важно");
+  else if (a.ai === "0") add("🤖", "Процент ИИ", "0% — без ИИ");
+  else if (a.ai) add("🤖", "Процент ИИ", `не более ${a.ai}%`);
 
   if (t.design === "text") {
     const font = a.fmt_font === "другой" ? a.fmt_font_text : a.fmt_font;
@@ -350,8 +357,10 @@ export async function onFormButton(ctx: Ctx, q: string, v: string) {
     await ctx.answer(T.STALE_BUTTON);
     return;
   }
-  await ctx.answer();
   const idx = /^\d+$/.test(v) ? Number(v) : -1;
+  // ВКР пока не принимаем: кнопка видна с пометкой «скоро», нажатие только объясняет
+  if (q === "type" && (T.SOON_TYPES as readonly string[]).includes(TYPE_KEYS[idx])) return void await ctx.answer(T.SOON_ALERT, true);
+  await ctx.answer();
   const pick = (options: readonly string[]) => (idx >= 0 && idx < options.length ? options[idx] : null);
 
   if (q === "type") {
@@ -375,6 +384,9 @@ export async function onFormButton(ctx: Ctx, q: string, v: string) {
   } else if (q === "orig") {
     a.orig = v;
     if (v === "none") a.orig_sys = null;
+  } else if (q === "ai") {
+    if (!T.AI_LEVELS.some(([key]) => key === v)) return;
+    a.ai = v;
   } else if (q in SIMPLE_CHOICES) {
     const value = pick(SIMPLE_CHOICES[q][0]);
     if (value === null) return;

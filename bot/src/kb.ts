@@ -92,14 +92,29 @@ export function payKb(o: number, final = false, pay?: PayOptions | null, amount?
 export const resendReceiptKb = (o: number) => inline([[btn(T.BTN_RESEND_RECEIPT, cb("c", "receipt", o))]]);
 export const backToOrderKb = (o: number) => inline([[btn(T.BTN_TO_ORDER, cb("c", "open", o))]]);
 
-/** К уведомлению добавляет кнопку «Открыть заказ» — вся информация там. */
-export function withOrderButton(markup: Inline | null | undefined, o: number): Inline {
-  return inline([...(markup?.inline_keyboard ?? []), [btn(T.BTN_TO_ORDER, cb("c", "open", o))]]);
+const AWAITING: Record<string, string> = { awaiting_payment: T.BTN_PAY, awaiting_final: T.BTN_PAY_FINAL };
+
+/** К уведомлению добавляет кнопки заказа: «Открыть заказ», «Прикрепить файл» и, пока заказ не оплачен, «Оплатить»
+ *  (реквизиты всегда в одно нажатие, какое бы сообщение ни пришло последним). */
+export function withOrderButton(markup: Inline | null | undefined, o: number | Pick<Order, "id" | "status">): Inline {
+  const rows = [...(markup?.inline_keyboard ?? [])];
+  const id = typeof o === "number" ? o : o.id;
+  const status = typeof o === "number" ? null : o.status;
+  const has = (action: string) => rows.some((r) => r.some((b) => String(b.callback_data ?? "").startsWith(`c:${action}:`)));
+  if (status && AWAITING[status] && !has("pay") && !has("receipt")) rows.push([btn(AWAITING[status], cb("c", "pay", id))]);
+  const last = [btn(T.BTN_TO_ORDER, cb("c", "open", id))];
+  if (status !== "cancelled" && !has("attach")) last.unshift(btn(T.BTN_ATTACH, cb("c", "attach", id)));
+  rows.push(last);
+  return inline(rows);
 }
+
+export const attachDoneKb = (o: number) => inline([[btn(T.BTN_ATTACH_DONE, cb("c", "open", o))]]);
 
 export const cancelConfirmKb = (o: number) =>
   inline([[btn(T.BTN_CANCEL_CONFIRM, cb("c", "cancel_yes", o)), btn(T.BTN_CANCEL_KEEP, cb("c", "open", o))]]);
 export const acceptWorkKb = (o: number) => inline([[btn(T.BTN_ACCEPT_WORK, cb("c", "accept", o))]]);
+export const acceptConfirmKb = (o: number) =>
+  inline([[btn(T.BTN_ACCEPT_YES, cb("c", "accept_yes", o))], [btn(T.BTN_ACCEPT_NO, cb("c", "write", o))]]);
 
 function typeOf(o: Order) {
   // deno-lint-ignore no-explicit-any
@@ -121,7 +136,7 @@ export function orderDetailKb(o: Order): Inline {
   if (o.status === "awaiting_final") b.push(btn(T.BTN_PAY_FINAL, cb("c", "pay", o.id)));
   if (o.status === "review") b.push(btn(T.BTN_ACCEPT_WORK, cb("c", "accept", o.id)));
   if (o.status === "review" || o.status === "done") b.push(btn(T.BTN_GET_WORK, cb("c", "files", o.id)));
-  if (o.status !== "cancelled") b.push(btn(T.BTN_WRITE_ORDER, cb("c", "write", o.id)));
+  if (o.status !== "cancelled") b.push(btn(T.BTN_ATTACH, cb("c", "attach", o.id)), btn(T.BTN_WRITE_ORDER, cb("c", "write", o.id)));
   if (["new", "accepted", "awaiting_payment"].includes(o.status) && !o.paid) b.push(btn(T.BTN_CANCEL_ORDER, cb("c", "cancel", o.id)));
   b.push(btn(T.BTN_TO_LIST, cb("c", "list", 0)));
   return inline(adjust(b, 1));

@@ -4,14 +4,15 @@
 // сообщение клиенту) и готовые работы, загруженные через админ-панель.
 import { T } from "./texts.ts";
 import type { Config } from "./config.ts";
-import { log } from "./config.ts";
+import { log, storageKey, storageUrl } from "./config.ts";
 import * as db from "./db.ts";
 import type { Order } from "./db.ts";
 import * as K from "./kb.ts";
 import * as screen from "./screen.ts";
 import {
-  changeStatus, deliverResult, notifyOrderAdmins, offerText, paymentDetailsText, paymentKb, paymentText, prepayAmount,
-  refreshOrderCards, sendOffer, sendPaymentInstructions, sendStoredFile, undeliveredReason, workSummary,
+  changeStatus, deliverResult, logResultFiles, notifyOrderAdmins, offerText, paymentDetailsText, paymentKb, paymentText,
+  prepayAmount, refreshOrderCards, sendFilesToAdmins, sendOffer, sendPaymentInstructions, sendResultFiles, undeliveredReason,
+  workSummary,
 } from "./services.ts";
 import { createSiteOrder, normalizePayload } from "./siteOrders.ts";
 import * as tg from "./tg.ts";
@@ -32,17 +33,6 @@ export async function checkStorage(): Promise<string | null> {
   }
 }
 
-const storageUrl = () => (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/+$/, "");
-function storageKey(): string {
-  // STORAGE_KEY — свой секрет с ключом Secret (sb_secret_…), если встроенный ключ Supabase не подходит
-  const k = Deno.env.get("STORAGE_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SECRET_KEY") || "";
-  if (k) return k;
-  try { // новые проекты: SUPABASE_SECRET_KEYS = {"default": "sb_secret_…"}
-    return Object.values(JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") || "{}"))[0] as string || "";
-  } catch {
-    return "";
-  }
-}
 const encPath = (p: string) => p.split("/").map(encodeURIComponent).join("/");
 
 async function upload(bucket: string, path: string, data: Uint8Array, contentType: string) {
@@ -114,7 +104,7 @@ async function pushOrder(o: Order) {
       log(`Файл заказа #${o.code} не загрузился на сайт: ${(e as Error).message}`);
     }
   }
-  // Готовая работа заменена — старые файлы с сайта убираем
+  // Файлы, которых в заказе больше нет, — убираем и с сайта
   await db.exec(
     `delete from cloud_files c where c.order_id = $1 and (c.source = 'bot' or c.delivered)
      and not exists (select 1 from bot_files f where f.cloud_id = c.id)`, [o.id]);
@@ -282,7 +272,7 @@ export async function applyActions(config: Config): Promise<number> {
           who, code: o.code, what: `статус «${(T.STATUS as Record<string, string>)[status]}»`,
         }));
       } else if (row.action === "bundle") {
-        await applyBundle(config, o, payload, who);
+        await applyBundle(config, o, payload, who, row.created_by || null);
       } else if (row.action === "delete") {
         // Сначала сообщаем админам заказа, потом удаляем — карточки заказа уберутся из их чатов
         await notifyOrderAdmins(config, o, fmt(T.CLOUD_ACTION_DONE, { who, code: o.code, what: "заказ удалён" }));
@@ -303,7 +293,8 @@ export async function applyActions(config: Config): Promise<number> {
         const text = String(payload.text ?? "").trim().slice(0, 3500);
         if (!text) throw new Error("пустое сообщение");
         const header = fmt(T.ADMIN_REPLY_HEADER, { order: fmt(T.ADMIN_REPLY_ORDER, { code: o.code }) });
-        if (!await screen.newScreen(o.user_id, `${header}\n\n${esc(text)}`, K.backToOrderKb(o.id))) throw new Error(undeliveredReason(o.user_id));
+        if (!await screen.newScreen(o.user_id, `${header}\n\n${esc(text)}`, K.withOrderButton(null, o))) throw new Error(undeliveredReason(o.user_id));
+        await db.logMessage(o.id, "admin", row.created_by || null, text);
       } else throw new Error("неизвестное действие");
       await db.touchOrder(o.id);
     } catch (e) {
@@ -317,7 +308,7 @@ export async function applyActions(config: Config): Promise<number> {
 
 /** «Отправить всё сразу» из админ-панели: цена, срок, статус, сообщение и файлы — клиенту одним экраном. */
 // deno-lint-ignore no-explicit-any
-async function applyBundle(config: Config, order: Order, payload: Record<string, any>, who: string) {
+async function applyBundle(config: Config, order: Order, payload: Record<string, any>, who: string, rawWho: string | null) {
   let o = order;
   const parts: string[] = [];
   const done: string[] = [];
@@ -363,12 +354,9 @@ async function applyBundle(config: Config, order: Order, payload: Record<string,
     }
   }
 
-  let sentFiles = false;
+  let added: db.Row[] = [];
   if (files.length) {
-    await db.deleteFiles(o.id, "result"); // новая версия работы заменяет прошлую
-    for (const f of files) {
-      await db.addFile(o.id, "result", { file_id: publicUrl(f.bucket, f.path), type: "document", name: f.name }, f.path, f.id);
-    }
+    added = await addResultFiles(o.id, files); // к прошлым файлам работы, а не вместо них
     done.push(`готовая работа (файлов: ${files.length})`);
     if (Math.max(0, (o.price || 0) - o.paid) > 0) {
       await db.setStatus(o.id, "awaiting_final");
@@ -376,34 +364,36 @@ async function applyBundle(config: Config, order: Order, payload: Record<string,
       parts.push(paymentText(config, o, "final"));
       kb = paymentKb(config, o, "final");
     } else {
-      // Файлы уходят новым экраном; прежний экран убираем, только когда всё дошло
-      const before = await screen.begin(o.user_id);
-      const ids: number[] = [];
-      for (const f of await db.getFiles(o.id, "result")) {
-        const m = await sendStoredFile(o.user_id, f);
-        if (!m) {
-          if (ids.length) await screen.commit(o.user_id, { ...before, ids: [] }, ids);
-          throw new Error(undeliveredReason(o.user_id));
-        }
-        ids.push(m.message_id);
-      }
-      await screen.commit(o.user_id, before, ids);
+      // Файлы остаются в чате клиента насовсем; сообщение о готовности — новым экраном под ними
+      if (!await sendResultFiles(config, o, added)) throw new Error(undeliveredReason(o.user_id));
       await db.setStatus(o.id, "review");
       o = (await db.getOrder(o.id))!;
       parts.push(fmt(T.RESULT_DELIVERED, { code: o.code }));
       kb = K.acceptWorkKb(o.id);
-      sentFiles = true;
     }
   }
   if (!parts.length && !done.length) throw new Error("нечего отправлять — заполните хотя бы одно поле");
   if (parts.length) {
     const body = parts.join("\n\n— — —\n\n");
     const markup = K.withOrderButton(kb as never, o.id);
-    const msg = sentFiles ? await screen.add(o.user_id, body, markup) : await screen.newScreen(o.user_id, body, markup);
+    const msg = await screen.newScreen(o.user_id, body, markup);
     if (!msg) throw new Error(undeliveredReason(o.user_id));
   }
+  if (text) await db.logMessage(o.id, "admin", rawWho, text);
+  if (added.length) await logResultFiles(o, added, rawWho);
   await refreshOrderCards(config, o.id);
   await notifyOrderAdmins(config, o, fmt(T.CLOUD_ACTION_DONE, { who, code: o.code, what: done.join(", ") || "сообщение" }));
+  if (added.length) await sendFilesToAdmins(config, o, added); // админ видит, какие именно файлы ушли
+}
+
+/** Готовые файлы из админ-панели — в заказ. Возвращает добавленные записи. */
+async function addResultFiles(orderId: number, files: db.Row[]): Promise<db.Row[]> {
+  const ids: number[] = [];
+  for (const f of files) {
+    // Telegram получит файл, когда бот отправит его клиенту (бот сам скачает его по ссылке)
+    ids.push(await db.addFile(orderId, "result", { file_id: publicUrl(f.bucket, f.path), type: "document", name: f.name }, f.path, f.id));
+  }
+  return (await db.getFiles(orderId, "result")).filter((f) => ids.includes(f.id));
 }
 
 /** Готовые работы, загруженные админом на сайте, — клиенту в Telegram. */
@@ -420,18 +410,17 @@ export async function deliverSiteResults(config: Config): Promise<number> {
   for (const [orderId, files] of byOrder) {
     const o = await db.getOrder(orderId);
     if (!o) continue;
-    await db.deleteFiles(orderId, "result"); // новая версия работы заменяет прошлую
-    for (const f of files) {
-      // Telegram сам скачает файл по ссылке, когда бот отправит его клиенту
-      await db.addFile(orderId, "result", { file_id: publicUrl(f.bucket, f.path), type: "document", name: f.name }, f.path, f.id);
-    }
-    if (Math.max(0, (o.price || 0) - o.paid) > 0) {
+    const added = await addResultFiles(orderId, files);
+    const waits = Math.max(0, (o.price || 0) - o.paid) > 0;
+    if (waits) {
       await changeStatus(config, orderId, "awaiting_final", { notify: false });
       await sendPaymentInstructions(config, (await db.getOrder(orderId))!, "final");
     } else {
-      await deliverResult(config, orderId);
+      await deliverResult(config, orderId, added);
     }
-    await notifyOrderAdmins(config, o, fmt(T.CLOUD_RESULT_SENT, { code: o.code, n: files.length }));
+    await logResultFiles(o, added, null);
+    await notifyOrderAdmins(config, o, fmt(waits ? T.CLOUD_RESULT_WAITS : T.CLOUD_RESULT_SENT, { code: o.code, n: files.length }));
+    await sendFilesToAdmins(config, o, added);
   }
   return rows.length;
 }
